@@ -45,10 +45,10 @@ meson install -C build
 PKG_CONFIG_PATH=$HOME/.local/lib64/pkgconfig pip install . -Csetup-args=--wrap-mode=nofallback
 ```
 
-The extension records the library directory as its run-time search path. (meson-python uses
-`patchelf` for that; pip installs it in isolated builds, add it to the environment for
-`--no-build-isolation` builds). GPU builds of the
-core (OpenACC or OpenMP offload) are used the same way: the bindings only call the C API.
+The extension records the library directory as its run-time search path; meson-python uses
+`patchelf` for that, which pip installs in isolated builds (add it to the environment for
+`--no-build-isolation` builds). GPU builds of the core (OpenACC or OpenMP offload) are used the
+same way: the bindings only call the C API.
 
 Development: in a virtual environment with `meson-python`, `meson`, `ninja`, `cython`, `numpy`
 and `pytest`, run `pip install --no-build-isolation .` (or `-e .`), then `pytest`.
