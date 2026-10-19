@@ -247,7 +247,6 @@ cdef class Context:
         cdef int st = 0
         cdef int z = zin
         self._live()
-        _config.prepare_environment(data_home)
         bi = (isoc or "").encode()
         bs = (spec or "").encode()
         bd = (dust or "").encode()
@@ -255,7 +254,7 @@ cdef class Context:
         cdef const char *cs = bs
         cdef const char *cd = bd
         cdef int h = self.handle
-        with self._lock:
+        with self._lock, _config.library_environment(data_home):
             _pool_lock.acquire_shared()
             try:
                 with nogil:

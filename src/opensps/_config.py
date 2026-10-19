@@ -12,13 +12,14 @@ tree (a ``data/`` directory with ``allfilters.dat`` or ``FILTER_LIST``):
 and stops the process if none does. This module mirrors that search so that Python can raise
 an exception instead, and lets a program choose the data explicitly
 (:func:`set_data_home`, or ``$OPENSPS_DATA_HOME``): the choice is passed to the library by
-setting both ``SPS_HOME`` and ``FSPS_DATA_HOME`` before a context is set up (the library reads
-them at setup).
+setting both ``SPS_HOME`` and ``FSPS_DATA_HOME`` during a context's setup (the library reads
+them there) and restoring them afterwards.
 
 When the core moves to its new data format, only this module changes.
 """
 
 import os
+from contextlib import contextmanager
 from pathlib import Path
 
 __all__ = ["set_data_home", "get_data_home", "find_data_home", "DataNotFoundError"]
@@ -89,11 +90,23 @@ def find_data_home(explicit=None):
         "(or SPS_HOME / FSPS_DATA_HOME) to the directory that contains data/")
 
 
-def prepare_environment(explicit=None):
-    """Called before every context setup: check that data exist and point the library at the
-    chosen tree. Returns the data root."""
+@contextmanager
+def library_environment(explicit=None):
+    """Around a context setup: check that data exist and, if a data root was chosen, point the
+    library at it through ``SPS_HOME`` and ``FSPS_DATA_HOME``, restored afterwards (other code
+    in the process, e.g. Prospector, reads ``SPS_HOME`` for its own legacy data)."""
     root = find_data_home(explicit)
-    if explicit is not None or get_data_home() is not None:
-        os.environ["SPS_HOME"] = str(root)
-        os.environ["FSPS_DATA_HOME"] = str(root)
-    return root
+    if explicit is None and get_data_home() is None:
+        yield root
+        return
+    saved = {k: os.environ.get(k) for k in ("SPS_HOME", "FSPS_DATA_HOME")}
+    os.environ["SPS_HOME"] = str(root)
+    os.environ["FSPS_DATA_HOME"] = str(root)
+    try:
+        yield root
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v

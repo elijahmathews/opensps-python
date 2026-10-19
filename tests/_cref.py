@@ -12,6 +12,7 @@ import os
 
 import numpy as np
 
+import opensps._config as _config
 import opensps._core as _core
 
 D = ctypes.POINTER(ctypes.c_double)
@@ -48,8 +49,9 @@ class CRef:
     def create(self, isoc="mist", spec="miles", dust="DL07"):
         h = ctypes.c_int(0)
         self.call("fsps_context_create", ctypes.byref(h))
-        self.call("fsps_context_setup", ctypes.c_int(-1), isoc.encode(), spec.encode(),
-                  dust.encode(), h)
+        with _config.library_environment():  # the data root the bindings use
+            self.call("fsps_context_setup", ctypes.c_int(-1), isoc.encode(), spec.encode(),
+                      dust.encode(), h)
         return h.value
 
     def destroy(self, h):
