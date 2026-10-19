@@ -1,0 +1,26 @@
+[build-system]
+build-backend = "mesonpy"
+requires = ["meson-python>=0.15", "meson>=1.4", "cython>=3.0", "numpy>=2.0"]
+
+[project]
+name = "opensps"
+version = "0.1.0.dev0"
+description = "Python bindings for libopensps, a modernized FSPS"
+readme = "README.md"
+license = { file = "LICENSE.md" }
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Source = "https://github.com/elijahmathews/opensps-python"
+
+[tool.meson-python.args]
+# Only the Python package goes into the wheel: not the core's headers, pkg-config file or
+# static library (when it is built as a subproject)
+install = ["--tags=runtime,python-runtime"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
