@@ -42,6 +42,7 @@ py.extension_module('_core',
 py.install_sources(
   'src/opensps/__init__.py',
   'src/opensps/_config.py',
+  'src/opensps/dust.py',
   'src/opensps/filters.py',
   'src/opensps/_capi.pxd',
   subdir : 'opensps',

@@ -17,12 +17,13 @@ from ._core import (
     api_version,
     header_api_version,
 )
+from .dust import attenuate_parts
 from .filters import emline_names, find_filter, get_filter, list_filters
 
 __all__ = [
     "Context", "DeviceSpectra", "FSPSError", "UnknownParameterError",
     "DataNotFoundError", "set_data_home", "get_data_home", "find_data_home",
-    "list_filters", "find_filter", "get_filter", "emline_names",
+    "list_filters", "find_filter", "get_filter", "emline_names", "attenuate_parts",
     "api_version", "header_api_version",
 ]
 

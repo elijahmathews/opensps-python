@@ -544,7 +544,7 @@ cdef class Context:
         return {k: v for k, v in out.items() if v is not None}
 
     def compute_csp_batch(self, params=None, ssp_weights=None, n=None, spec=True,
-                          emlines=False, indices=False, out=None):
+                          emlines=False, indices=False, parts=False, out=None):
         """Many CSPs in one call (``fsps_context_compute_csp_batch``).
 
         The models share the context's parameters except those in ``params``.
@@ -559,10 +559,17 @@ cdef class Context:
         :param n: number of models, if it cannot be inferred from the arrays.
         :param spec, emlines, indices: also return spectra / line luminosities / indices
             (magnitudes, mass, lbol, mdust and sfr always come back).
+        :param parts: also return the intrinsic young and old components: ``young``, ``old``
+            (n, nspec) [L_sun/Hz per M_sun formed], the spectra of the ages <= and > ``dust_tesc``
+            with nebular emission included, before dust, dust emission, AGN, IGM and
+            smoothing (what the attenuation receives); ``mass_young``, ``mass_old`` [M_sun] and
+            ``lbol_young``, ``lbol_old`` [log10 L_sun] of their stars. See
+            :func:`opensps.attenuate_parts` for rebuilding the attenuated spectrum.
         :param out: optional dict of preallocated C-contiguous float64 arrays (same shapes as
             the result) to write into, for repeated calls without allocation.
         :returns: dict with ``mags`` (n, nbands), ``mass``, ``lbol``, ``mdust``, ``sfr`` (n), and
-            optionally ``spec`` (n, nspec), ``emlines`` (n, nemline), ``indx`` (n, nindx).
+            optionally ``spec`` (n, nspec), ``emlines`` (n, nemline), ``indx`` (n, nindx) and the
+            parts.
         """
         cdef int st = 0
         cdef int i, npar, nn, h
@@ -606,6 +613,9 @@ cdef class Context:
             shapes["emlines"] = (nn, self.nemline)
         if indices:
             shapes["indx"] = (nn, self.nindx)
+        if parts:
+            shapes.update(young=(nn, self.nspec), old=(nn, self.nspec), mass_young=(nn,),
+                          mass_old=(nn,), lbol_young=(nn,), lbol_old=(nn,))
         res = {}
         out = out or {}
         for k, shp in shapes.items():
@@ -626,6 +636,13 @@ cdef class Context:
         cdef double *psfr = _dptr(res["sfr"])
         cdef double *peml = _dptr(res.get("emlines"))
         cdef double *pindx = _dptr(res.get("indx"))
+        cdef double *pyoung = _dptr(res.get("young"))
+        cdef double *pold = _dptr(res.get("old"))
+        cdef double *pmy = _dptr(res.get("mass_young"))
+        cdef double *pmo = _dptr(res.get("mass_old"))
+        cdef double *ply = _dptr(res.get("lbol_young"))
+        cdef double *plo = _dptr(res.get("lbol_old"))
+        cdef bint with_parts = parts
         pw = _dptr(ssp_weights)
         h = self.handle
         if npar > 0:
@@ -643,9 +660,15 @@ cdef class Context:
                 _pool_lock.acquire_shared()
                 try:
                     with nogil:
-                        _capi.ctx_compute_csp_batch(h, nn, npar, cnames, cvalues, pw, pmags,
-                                                    pspec, pmass, plbol, pmdust, psfr, peml,
-                                                    pindx, &st)
+                        if with_parts:
+                            _capi.ctx_compute_csp_batch_parts(h, nn, npar, cnames, cvalues, pw,
+                                                              pmags, pspec, pmass, plbol, pmdust,
+                                                              psfr, peml, pindx, pyoung, pold,
+                                                              pmy, pmo, ply, plo, &st)
+                        else:
+                            _capi.ctx_compute_csp_batch(h, nn, npar, cnames, cvalues, pw, pmags,
+                                                        pspec, pmass, plbol, pmdust, psfr, peml,
+                                                        pindx, &st)
                 finally:
                     _pool_lock.release_shared()
         finally:

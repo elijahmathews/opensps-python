@@ -1,10 +1,11 @@
 # The core library (libopensps; repository still named fsps), built as a subproject when no
 # installed library is found through pkg-config.
 # TODO: pin a release tag of the core once one exists. Until then: the head of
-# capi/bindings-support (elijahmathews/fsps), which adds the C API entry points the bindings use.
+# physics/batch-young-old (elijahmathews/fsps#24, on top of #20), which has the C API 1.2 entry
+# points the bindings use.
 [wrap-git]
 url = https://github.com/elijahmathews/fsps.git
-revision = c93933f4f389047826e1bc64d048a168b426c67a
+revision = 80c1ec9e2814e88022c53881dc2cb5210564892e
 depth = 1
 
 [provide]

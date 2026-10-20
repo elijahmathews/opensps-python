@@ -112,3 +112,27 @@ def test_scalar_broadcast_and_errors(bctx):
         bctx.compute_csp_batch(dict(dust2=np.zeros(N), tau=np.zeros(N + 1)))
     with pytest.raises(ValueError):
         bctx.compute_csp_batch({})
+
+
+def test_young_old_parts(fresh, cref):
+    """The intrinsic parts rebuild the batch spectrum with the documented dust model, add up
+    in mass and L_bol; the other outputs equal the plain batch."""
+    fresh.set_params(sfh=4, dust_type=0, add_dust_emission=0, add_neb_emission=1)
+    p = dict(logzsol=PARAMS["logzsol"], tau=PARAMS["tau"], tage=PARAMS["tage"],
+             dust1=RNG.uniform(0, 1.5, N), dust2=PARAMS["dust2"], dust_index=PARAMS["dust_index"],
+             dust1_index=RNG.uniform(-1.5, -0.5, N), frac_obrun=RNG.uniform(0, 0.3, N),
+             frac_nodust=RNG.uniform(0, 0.2, N), dust3=RNG.uniform(0, 0.3, N))
+    out = fresh.compute_csp_batch(p, parts=True)
+    rebuilt = opensps.attenuate_parts(fresh.wavelengths, out["young"], out["old"], dust1=p["dust1"],
+                                      dust2=p["dust2"], dust1_index=p["dust1_index"],
+                                      dust3=p["dust3"], frac_obrun=p["frac_obrun"],
+                                      frac_nodust=p["frac_nodust"], dust_index=p["dust_index"])
+    tol = 1e-12 if fresh.batch_spectra_host().dtype == np.float64 else 1e-6
+    big = out["spec"] > 1e-8 * out["spec"].max(axis=1, keepdims=True)
+    assert np.max(np.abs(rebuilt[big] / out["spec"][big] - 1)) < tol
+    np.testing.assert_allclose(out["mass_young"] + out["mass_old"], out["mass"], rtol=1e-12)
+    np.testing.assert_allclose(np.log10(10 ** out["lbol_young"] + 10 ** out["lbol_old"]),
+                               out["lbol"], atol=1e-12)
+    plain = fresh.compute_csp_batch(p)
+    assert_identical(plain["spec"], out["spec"])
+    assert_identical(plain["mags"], out["mags"])

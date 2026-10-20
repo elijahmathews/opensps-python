@@ -120,6 +120,21 @@ res = ctx.compute_csp_batch({"dust2": params["dust2"], "tage": 13.0}, ssp_weight
                             spec=False, emlines=True)
 ```
 
+### Young and old parts
+
+With `parts=True` the batch also returns its intrinsic young (ages <= `dust_tesc`) and old
+spectra (`young`, `old`, nebular emission included, before any dust), with their masses and
+L_bol. Dust can then be varied without recomputing the stellar populations, e.g. for emulator
+training sets; `opensps.attenuate_parts` applies the batch's dust model and reproduces its
+spectrum exactly when dust emission, AGN, IGM and smoothing are off:
+
+```python
+ctx.set_params(dust_type=0, add_dust_emission=0)
+res = ctx.compute_csp_batch(params, parts=True)
+spec = opensps.attenuate_parts(ctx.wavelengths, res["young"], res["old"],
+                               dust1=0.5, dust2=params["dust2"], dust_index=-0.7)
+```
+
 Only parameters that act after the SSPs may vary per model (SFH, dust, dust emission,
 nebular gas with `add_neb_emission = 1`, AGN, `logzsol`, `zred`, `igm_factor`, ...);
 varying one that changes the SSPs (IMF, isochrone options) raises `FSPSError` (status 2):

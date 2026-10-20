@@ -60,6 +60,11 @@ cdef extern from "fsps.h" nogil:
         int handle, int n, int n_params, const char *const *names, const double *const *values,
         const double *ssp_weights, double *mags, double *spec, double *mass, double *lbol,
         double *mdust, double *sfr, double *emlines, double *indx, int *status)
+    void ctx_compute_csp_batch_parts "fsps_context_compute_csp_batch_parts" (
+        int handle, int n, int n_params, const char *const *names, const double *const *values,
+        const double *ssp_weights, double *mags, double *spec, double *mass, double *lbol,
+        double *mdust, double *sfr, double *emlines, double *indx, double *young, double *old,
+        double *mass_young, double *mass_old, double *lbol_young, double *lbol_old, int *status)
     void ctx_batch_spec_device "fsps_context_batch_spec_device" (int handle, void **ptr,
                                                                  int *nspec, int *n, int *bytes,
                                                                  int *status)
