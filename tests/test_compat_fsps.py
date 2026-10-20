@@ -6,19 +6,20 @@ import numpy as np
 import pytest
 
 import opensps
+import opensps.compat.fsps as fsps_compat
 from conftest import LIBS, assert_identical
 
 
 @pytest.fixture(scope="module")
 def sp(data_home):
-    return opensps.StellarPopulation(zcontinuous=1, libraries=LIBS, sfh=4, tau=2.0, dust2=0.3,
+    return fsps_compat.StellarPopulation(zcontinuous=1, libraries=LIBS, sfh=4, tau=2.0, dust2=0.3,
                                      add_neb_emission=True, logzsol=-0.2)
 
 
 def reference(params, zc=1, **extra):
     """The same model through a Context set up from the python-fsps defaults."""
     c = opensps.Context(*LIBS)
-    c.set_params(opensps.compat.DEFAULTS)
+    c.set_params(fsps_compat.DEFAULTS)
     c.set_params(params, **extra)
     out = c.compute_csp(zc)
     c.close()
@@ -86,12 +87,12 @@ def test_params_semantics(sp):
     sp.params["imf1"] = 1.3
     sp.params["dust2"] = 0.3
     with pytest.raises(TypeError):
-        opensps.StellarPopulation(not_a_param=1)
+        fsps_compat.StellarPopulation(not_a_param=1)
 
 
 def test_tabular_sfh_like_prospector(data_home):
     """FastStepBasis: sfh=3, set_tabular_sfh, spectrum / mtot."""
-    sp = opensps.StellarPopulation(zcontinuous=1, libraries=LIBS, logzsol=-0.5)
+    sp = fsps_compat.StellarPopulation(zcontinuous=1, libraries=LIBS, logzsol=-0.5)
     sp.params["sfh"] = 3
     # Bins of lookback time 0-0.1, 0.1-1, 1-10 Gyr with 1e8, 1e9, 5e9 M_sun formed, at
     # tage = 10 Gyr: constant SFR per bin, the table in forward time (edges +- 1e-4 Gyr)
@@ -111,10 +112,10 @@ def test_tabular_sfh_like_prospector(data_home):
 def test_install_as_fsps(data_home):
     saved = sys.modules.get("fsps")
     try:
-        opensps.install_as_fsps()
+        fsps_compat.install_as_fsps()
         import fsps
 
-        assert fsps.StellarPopulation is opensps.StellarPopulation
+        assert fsps.StellarPopulation is fsps_compat.StellarPopulation
         assert "sdss_r" in fsps.list_filters()
     finally:
         if saved is None:
@@ -124,8 +125,8 @@ def test_install_as_fsps(data_home):
 
 
 def test_independent_instances(data_home):
-    a = opensps.StellarPopulation(libraries=LIBS, sfh=1, tau=1.0, zmet=5)
-    b = opensps.StellarPopulation(libraries=LIBS, sfh=1, tau=1.0, zmet=12)
+    a = fsps_compat.StellarPopulation(libraries=LIBS, sfh=1, tau=1.0, zmet=5)
+    b = fsps_compat.StellarPopulation(libraries=LIBS, sfh=1, tau=1.0, zmet=12)
     sa = a.get_spectrum(tage=5.0)[1]
     sb = b.get_spectrum(tage=5.0)[1]
     assert not np.array_equal(sa, sb)

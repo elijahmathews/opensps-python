@@ -10,13 +10,14 @@ import numpy as np
 import pytest
 
 import opensps
+import opensps.compat.fsps as fsps_compat
 from conftest import assert_identical
 
 
 @pytest.fixture(scope="module")
 def prospect_sources(data_home):
     saved = sys.modules.get("fsps")
-    opensps.install_as_fsps()
+    fsps_compat.install_as_fsps()
     try:
         from prospect.sources import galaxy_basis
     except Exception as e:  # not installed, or its dependencies are missing
@@ -35,7 +36,7 @@ def test_cspspecbasis(prospect_sources):
                   tage=np.array([6.0]), tau=np.array([2.0]), sfh=np.array([4]),
                   add_neb_emission=True)
     wave, spec, mfrac = sps.get_galaxy_spectrum(**params)
-    sp = opensps.StellarPopulation(zcontinuous=1, logzsol=-0.3, dust2=0.4, tau=2.0, sfh=4,
+    sp = fsps_compat.StellarPopulation(zcontinuous=1, logzsol=-0.3, dust2=0.4, tau=2.0, sfh=4,
                                    add_neb_emission=True)
     w, s = sp.get_spectrum(tage=6.0)
     assert_identical(wave, w)
@@ -53,7 +54,7 @@ def test_faststepbasis(prospect_sources):
     assert 0.3 < mfrac < 1.0
     # The same tabular SFH through StellarPopulation directly
     time, sfr, tmax = sps.convert_sfh(agebins, mass)
-    sp = opensps.StellarPopulation(zcontinuous=1, logzsol=-0.5, sfh=3)
+    sp = fsps_compat.StellarPopulation(zcontinuous=1, logzsol=-0.5, sfh=3)
     sp.set_tabular_sfh(time, sfr)
     w, s = sp.get_spectrum(tage=tmax)
     np.testing.assert_allclose(spec, s / mass.sum(), rtol=1e-14, atol=0)

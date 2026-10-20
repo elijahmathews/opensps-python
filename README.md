@@ -6,8 +6,10 @@ Python bindings for libopensps, a modernized FSPS (Flexible Stellar Population S
   composite populations, and the batched CSP that evaluates many models in one call, with one
   NumPy array per parameter. Arrays go in and come out as NumPy arrays that the library writes
   directly; computations release the GIL.
-- `opensps.StellarPopulation`: a layer compatible with python-fsps, so existing scripts and
-  Prospector run with few changes (see [docs/compatibility.md](docs/compatibility.md)).
+
+The native API above is the interface of this package; it is not modelled on python-fsps.
+For migrating existing code there is an optional, frozen compatibility layer,
+`opensps.compat.fsps` ([docs/migrating-from-python-fsps.md](docs/migrating-from-python-fsps.md)).
 
 Status: in development. The C API entry points it needs are in the core's
 `capi/bindings-support` branch (elijahmathews/fsps#20).
@@ -126,24 +128,31 @@ batch's spectra in kernel precision (float32 in FP32-kernel builds) without conv
 `ctx.batch_spectra_device()` gives their device address with `__cuda_array_interface__` in GPU
 builds (for CuPy, Numba or PyTorch).
 
-## python-fsps compatibility
-
-```python
-sp = opensps.StellarPopulation(zcontinuous=1, sfh=4, tau=2.0, logzsol=-0.3)
-wave, spec = sp.get_spectrum(tage=5.0, peraa=True)
-mags = sp.get_mags(tage=5.0, bands=["sdss_g", "sdss_r"])
-print(sp.stellar_mass, sp.formed_mass, sp.log_lbol, sp.emline_luminosity.shape)
-```
-
-For Prospector, call `opensps.install_as_fsps()` before importing `prospect`; `import fsps`
-then returns this package. Differences from python-fsps: [docs/compatibility.md](docs/compatibility.md).
-
 ## Errors and threads
 
 C status codes become `opensps.FSPSError` (with `.status`); unknown parameter names raise
 `opensps.UnknownParameterError` (also a `KeyError`). Missing data raises
 `opensps.DataNotFoundError` before the library is called. Contexts are independent: use one
 per thread (a context is locked while it computes, and computations release the GIL).
+
+## Migrating from python-fsps
+
+`opensps.compat.fsps.StellarPopulation` reproduces the commonly used part of python-fsps's
+`StellarPopulation` on top of a `Context`, so existing scripts and Prospector run while they
+are ported. It is a migration aid, frozen at its current scope (no new features for python-fsps
+parity); new code should use `Context`.
+
+```python
+from opensps.compat.fsps import StellarPopulation, install_as_fsps
+
+sp = StellarPopulation(zcontinuous=1, sfh=4, tau=2.0, logzsol=-0.3)
+wave, spec = sp.get_spectrum(tage=5.0, peraa=True)
+mags = sp.get_mags(tage=5.0, bands=["sdss_g", "sdss_r"])
+
+install_as_fsps()   # before importing prospect: `import fsps` then returns this layer
+```
+
+Coverage and every known difference: [docs/migrating-from-python-fsps.md](docs/migrating-from-python-fsps.md).
 
 ## Tests
 
@@ -152,9 +161,9 @@ OPENSPS_DATA_HOME=/path/to/fsps pytest
 ```
 
 The suite compares the bindings bit for bit with direct calls of the same C library through
-ctypes, the batch with batches of one and with single CSPs, and `StellarPopulation` with
-`Context`. Two optional tests run when their packages are importable: Prospector's
-`CSPSpecBasis` / `FastStepBasis` on this package, and a comparison with python-fsps.
+ctypes, the batch with batches of one and with single CSPs, and the compatibility layer with
+`Context`. An optional test runs Prospector's `CSPSpecBasis` / `FastStepBasis` on the
+compatibility layer when Prospector is importable.
 `benchmarks/bench_batch.py` times the batch from Python and through ctypes.
 
 ## License

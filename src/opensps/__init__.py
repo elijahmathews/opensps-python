@@ -2,7 +2,8 @@
 
 - :class:`Context`: the library's context API (parameters by name, SSP grids, single CSPs,
   the batched CSP with one array per parameter); NumPy arrays in and out.
-- :class:`StellarPopulation`: a python-fsps compatible layer on top of it.
+
+Migration aid for code written for python-fsps (optional, frozen): :mod:`opensps.compat.fsps`.
 """
 
 __version__ = "0.1.0.dev0"
@@ -16,13 +17,12 @@ from ._core import (
     api_version,
     header_api_version,
 )
-from .compat import StellarPopulation, install_as_fsps
 from .filters import emline_names, find_filter, get_filter, list_filters
 
 __all__ = [
-    "Context", "DeviceSpectra", "FSPSError", "UnknownParameterError", "StellarPopulation",
+    "Context", "DeviceSpectra", "FSPSError", "UnknownParameterError",
     "DataNotFoundError", "set_data_home", "get_data_home", "find_data_home",
-    "list_filters", "find_filter", "get_filter", "emline_names", "install_as_fsps",
+    "list_filters", "find_filter", "get_filter", "emline_names",
     "api_version", "header_api_version",
 ]
 

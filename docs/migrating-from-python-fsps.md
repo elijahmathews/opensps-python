@@ -1,6 +1,12 @@
-# python-fsps compatibility
+# Migrating from python-fsps
 
-`opensps.StellarPopulation` follows python-fsps (`fsps.StellarPopulation`): the same
+opensps has its own API (`opensps.Context`, its batch call, NumPy arrays); it is not bound to
+python-fsps. To help existing code move over, `opensps.compat.fsps` provides a
+`StellarPopulation` that follows python-fsps. This layer is optional and frozen at its current
+scope: it gets no new features for python-fsps parity. Port code to `Context` when you can;
+the table at the end maps the common calls.
+
+`opensps.compat.fsps.StellarPopulation` follows python-fsps (`fsps.StellarPopulation`): the same
 constructor arguments, parameter names and defaults, methods, units and array shapes, for the
 part of its interface that scripts and Prospector use. This page lists what is covered and
 every known difference.
@@ -21,7 +27,7 @@ every known difference.
 | `fsps.list_filters()`, `find_filter()`, `get_filter()` | `opensps.list_filters()`, ... | `Filter.index`, `.name`, `.fullname` |
 
 Prospector's `SSPBasis`, `CSPSpecBasis` and `FastStepBasis` run unchanged after
-`opensps.install_as_fsps()` (tested: `tests/test_prospector.py`).
+`opensps.compat.fsps.install_as_fsps()` (tested: `tests/test_prospector.py`).
 
 ## Differences
 
@@ -68,5 +74,23 @@ libraries), `emline_names`, and the parameters `add_agn_dust`, `add_xrb_emission
 
 `sfr_avg`, `isochrones`, `smoothspec`, `set_lsf`, `_ztinterp`, `_all_ssp_spec`,
 `_get_stellar_spectrum`, `_csp_young_old` (used by Prospector's AGN basis), `resolutions`, the
-special value `tage = -99`. Most need C API entry points that do not exist yet; ask if one
-matters for your work.
+special value `tage = -99`. These will not be added to this layer; where the functionality
+matters, it belongs in the native API.
+
+There is no automated comparison with python-fsps: its numbers come from legacy FSPS, whose
+differences from libopensps are documented case by case in the core repository
+(`tools/legacy_parity/README.md`).
+
+## Porting to the native API
+
+| python-fsps | opensps |
+|---|---|
+| `sp = fsps.StellarPopulation(zcontinuous=1, **p)` | `ctx = opensps.Context("mist", "miles", "DL07"); ctx.set_params(p)` |
+| `sp.params["dust2"] = 0.3` | `ctx.set("dust2", 0.3)` |
+| `sp.get_spectrum(tage=5.0)` | `ctx.set("tage", 5.0); out = ctx.compute_csp(1); out["spec"][0]` |
+| `sp.get_mags(tage=5.0, bands=b)` | `out["mags"][0][[opensps.get_filter(x).index for x in b]]` |
+| `sp.stellar_mass`, `sp.log_lbol`, `sp.emline_luminosity` | `out["mass"]`, `out["lbol"]`, `out["emlines"]` |
+| `sp.set_tabular_sfh(t, sfr)` | `ctx.set_tabular_sfh(t, sfr)` |
+| `sp.wavelengths`, `sp.ssp_ages` | `ctx.wavelengths`, `ctx.log_ages` |
+| a loop over parameter values | `ctx.compute_csp_batch({"dust2": array, ...})` |
+

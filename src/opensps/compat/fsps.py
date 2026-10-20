@@ -1,11 +1,14 @@
 """A python-fsps compatible ``StellarPopulation`` on top of :class:`opensps.Context`.
 
+A migration aid, frozen: it covers what existing scripts and Prospector use and gets no new
+features for python-fsps parity. New code should use :class:`opensps.Context` directly.
+
 Covers the part of python-fsps that scripts and Prospector (``SSPBasis``, ``CSPSpecBasis``,
 ``FastStepBasis``) use: the ``params`` mapping, ``get_spectrum``, ``get_mags``,
 ``set_tabular_sfh``, the grids (``wavelengths``, ``ssp_ages``, ``zlegend``, ...) and the
 statistics of the last model (``stellar_mass``, ``formed_mass``, ``log_lbol``, ``sfr``,
 ``dust_mass``, ``emline_luminosity``, ``log_age``). Units and array shapes follow python-fsps.
-Differences are listed in docs/compatibility.md.
+Differences are listed in docs/migrating-from-python-fsps.md.
 
 Each ``StellarPopulation`` owns its own library context (python-fsps shares one global state
 between all instances), so several populations with different settings can coexist.
@@ -16,8 +19,8 @@ import types
 
 import numpy as np
 
-from . import filters as _filters
-from ._core import Context, FSPSError
+from .. import filters as _filters
+from .._core import Context, FSPSError
 
 __all__ = ["StellarPopulation", "ParameterSet", "install_as_fsps"]
 
@@ -393,7 +396,7 @@ def install_as_fsps():
     """Make ``import fsps`` return a module backed by this package (``StellarPopulation``,
     ``list_filters``, ``find_filter``, ``get_filter``), so that code written for python-fsps
     (e.g. Prospector's ``SSPBasis``) runs on it. Call before that code imports ``fsps``."""
-    from . import __version__
+    from .. import __version__
 
     mod = types.ModuleType("fsps")
     mod.StellarPopulation = StellarPopulation
