@@ -5,7 +5,7 @@
 # points the bindings use.
 [wrap-git]
 url = https://github.com/elijahmathews/fsps.git
-revision = 80c1ec9e2814e88022c53881dc2cb5210564892e
+revision = f8a1abd0aa8c207cfefdd052e099d011ccb4f6ea
 depth = 1
 
 [provide]
