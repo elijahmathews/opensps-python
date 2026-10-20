@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    # Builds the core as a subproject (the wrap's pinned commit) and runs the tests that need
+    # no data; the data-dependent tests skip until a small test data set is available.
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Compilers
+        run: sudo apt-get update && sudo apt-get install -y gfortran
+      - name: Build and install
+        run: python -m pip install -v ".[test]"
+      - name: Tests
+        run: |
+          cd tests
+          python -m pytest -q

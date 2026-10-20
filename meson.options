@@ -1,0 +1,2 @@
+option('core_names', type: 'array', value: ['opensps', 'fsps'],
+  description: 'pkg-config / dependency names of the core library, tried in order')
