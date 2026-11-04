@@ -87,9 +87,9 @@ if _HAS_TORCH:
 
     def csp_batch(
         context: "Context",
-        params: Dict[str, torch.Tensor],
-        ssp_weights: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        params: Dict[str, Any],
+        ssp_weights: Optional[Any] = None,
+    ) -> Tuple[Any, Any, Any, Any]:
         """Differentiable PyTorch operator for batched CSP calculation.
 
         Parameters
@@ -108,6 +108,9 @@ if _HAS_TORCH:
         mass : torch.Tensor of shape (N,)
         lbol : torch.Tensor of shape (N,)
         """
+        if not _HAS_TORCH:
+            raise ImportError("PyTorch is not installed. Please install torch to use opensps.torch.")
+
         param_names = tuple(params.keys())
         param_tensors = tuple(params.values())
 

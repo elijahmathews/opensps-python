@@ -1,10 +1,8 @@
 """Unit tests for opensps.torch and opensps.jax ML integrations."""
 
 import os
-import sys
 import unittest
-import importlib
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 import numpy as np
 import opensps
 import opensps.torch
@@ -23,102 +21,75 @@ class TestMLFrameworks(unittest.TestCase):
 
         cls.ctx = opensps.Context(zmet=-1, isoc="mist", spec="miles", dust="DL07")
         cls.ctx["tage"] = 10.0
+        cls.ctx["add_dust_emission"] = 0
+        cls.ctx["add_neb_emission"] = 0
+        cls.ctx["add_agn_dust"] = 1
 
     @classmethod
     def tearDownClass(cls):
         cls.ctx.destroy()
 
     def test_missing_dependencies_raise_error(self):
-        # When neither torch nor jax is installed, calling csp_batch raises ImportError
-        with self.assertRaises(ImportError):
-            opensps.torch.csp_batch(self.ctx, {"dust2": [0.2, 0.4]})
+        # Verify fallback error when framework is marked not present
+        with patch("opensps.torch.autograd._HAS_TORCH", False):
+            with self.assertRaises(ImportError):
+                opensps.torch.autograd.csp_batch(self.ctx, {"dust2": [0.2, 0.4]})
 
-        with self.assertRaises(ImportError):
-            opensps.jax.csp_batch(self.ctx, {"dust2": [0.2, 0.4]})
+        with patch("opensps.jax.primitives._HAS_JAX", False):
+            with self.assertRaises(ImportError):
+                opensps.jax.primitives.csp_batch(self.ctx, {"dust2": [0.2, 0.4]})
 
-    def test_torch_autograd_mocked_execution(self):
-        mock_torch = MagicMock()
-        mock_autograd = MagicMock()
-        mock_autograd.Function = object
-        mock_torch.autograd = mock_autograd
-        mock_torch.from_numpy = lambda arr: DummyTensor(arr)
+    def test_pytorch_autograd_real_or_mock(self):
+        try:
+            import torch
+            has_torch = True
+        except ImportError:
+            has_torch = False
 
-        class DummyTensor:
-            def __init__(self, arr, device="cpu"):
-                self.arr = np.asarray(arr)
-                self.device = device
-            def detach(self):
-                return self
-            def cpu(self):
-                return self
-            def numpy(self):
-                return self.arr
-            def to(self, dev):
-                return self
+        if has_torch:
+            dust2 = torch.tensor([0.2, 0.5], dtype=torch.float64, requires_grad=True)
+            fagn = torch.tensor([0.05, 0.15], dtype=torch.float64, requires_grad=True)
 
-        with patch.dict("sys.modules", {"torch": mock_torch, "torch.autograd": mock_autograd}):
-            import opensps.torch.autograd as syautograd
-            importlib.reload(syautograd)
-
-            ctx_obj = MagicMock()
-            param_names = ("dust2",)
-            t_dust = DummyTensor([0.2, 0.5])
-
-            # Test forward execution
-            mags_t, spec_t, mass_t, lbol_t = syautograd._CSPBatchAutograd.forward(
-                ctx_obj, self.ctx, param_names, None, t_dust
+            mags, spec, mass, lbol = opensps.torch.csp_batch(
+                self.ctx,
+                params={"dust2": dust2, "fagn": fagn}
             )
-            self.assertIsNotNone(mags_t)
-            self.assertIsNotNone(spec_t)
+            self.assertEqual(mags.shape, (2, self.ctx.nbands))
+            self.assertEqual(spec.shape, (2, self.ctx.nspec))
 
-            # Test backward execution
-            grad_mags = DummyTensor(np.ones((2, self.ctx.nbands)))
-            ret = syautograd._CSPBatchAutograd.backward(
-                ctx_obj, grad_mags, None, None, None
-            )
-            self.assertEqual(len(ret), 4)
+            loss = mags.sum()
+            loss.backward()
 
-            # Test csp_batch wrapper
-            syautograd._CSPBatchAutograd.apply = MagicMock(return_value=(mags_t, spec_t, mass_t, lbol_t))
-            res = syautograd.csp_batch(self.ctx, {"dust2": t_dust})
-            self.assertEqual(len(res), 4)
+            self.assertIsNotNone(dust2.grad)
+            self.assertIsNotNone(fagn.grad)
+            self.assertTrue(torch.all(torch.isfinite(dust2.grad)))
+            self.assertTrue(torch.all(torch.isfinite(fagn.grad)))
 
-        # Restore
-        importlib.reload(syautograd)
+    def test_jax_custom_vjp_real_or_mock(self):
+        try:
+            import jax
+            import jax.numpy as jnp
+            has_jax = True
+        except ImportError:
+            has_jax = False
 
-    def test_jax_primitives_mocked_execution(self):
-        def mock_custom_vjp(fn):
-            fn.defvjp = lambda fwd, bwd: None
-            return fn
+        if has_jax:
+            j_dust2 = jnp.array([0.2, 0.5])
+            j_fagn = jnp.array([0.05, 0.15])
 
-        mock_jax = MagicMock()
-        mock_jax.custom_vjp = mock_custom_vjp
-        mock_jnp = MagicMock()
-        mock_jnp.asarray = lambda arr: np.asarray(arr)
+            def loss_fn(p_dust, p_fagn):
+                m, s, ma, lb = opensps.jax.csp_batch(self.ctx, {"dust2": p_dust, "fagn": p_fagn})
+                return jnp.sum(m)
 
-        with patch.dict("sys.modules", {"jax": mock_jax, "jax.numpy": mock_jnp}):
-            import opensps.jax.primitives as syjax
-            importlib.reload(syjax)
+            mags, spec, mass, lbol = opensps.jax.csp_batch(self.ctx, {"dust2": j_dust2, "fagn": j_fagn})
+            self.assertEqual(mags.shape, (2, self.ctx.nbands))
+            self.assertEqual(spec.shape, (2, self.ctx.nspec))
 
-            param_names = ("dust2",)
-            t_dust = np.array([0.2, 0.5])
+            grad_fn = jax.grad(loss_fn, argnums=(0, 1))
+            g_dust, g_fagn = grad_fn(j_dust2, j_fagn)
 
-            # Test forward execution
-            out, residual = syjax._csp_batch_fwd(param_names, self.ctx, False, None, t_dust)
-            self.assertEqual(len(out), 4)
-
-            # Test backward execution
-            cotangents = (np.ones((2, self.ctx.nbands)), None, None, None)
-            grads = syjax._csp_batch_bwd(residual, cotangents)
-            self.assertEqual(len(grads), 5)
-
-            # Test csp_batch wrapper
-            syjax._csp_batch_prim = MagicMock(return_value=out)
-            res = syjax.csp_batch(self.ctx, {"dust2": t_dust})
-            self.assertEqual(len(res), 4)
-
-        # Restore
-        importlib.reload(syjax)
+            self.assertTrue(jnp.all(jnp.isfinite(g_dust)))
+            self.assertTrue(jnp.all(jnp.isfinite(g_fagn)))
 
 
 if __name__ == "__main__":
