@@ -36,6 +36,14 @@ class TestSSPOperator(unittest.TestCase):
         self.assertTrue(np.all(mass > 0.0))
         self.assertTrue(np.all(np.isfinite(lbol)))
 
+        # Evaluate with defaults (imf_type=None, imf_params=None)
+        m_def, l_def, s_def = op.evaluate()
+        self.assertEqual(m_def.shape, (self.ctx.ntfull,))
+
+        # Evaluate with short imf_params (< 5 elements, padded internally)
+        m_pad, l_pad, s_pad = op.evaluate(imf_type=2, imf_params=[1.2, 2.2])
+        self.assertEqual(m_pad.shape, (self.ctx.ntfull,))
+
         op.free()
         self.assertFalse(self.ctx.has_ssp_operator)
 

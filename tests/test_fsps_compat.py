@@ -24,6 +24,11 @@ class TestFSPSCompatibility(unittest.TestCase):
         sp.params["dust2"] = 0.3
         self.assertEqual(sp.params["logzsol"], -0.5)
         self.assertEqual(sp.params["dust2"], 0.3)
+        self.assertTrue("dust2" in sp.params)
+        self.assertIn("dust2", list(sp.params.keys()))
+        self.assertIn(0.3, list(sp.params.values()))
+        self.assertIn(("dust2", 0.3), list(sp.params.items()))
+        self.assertIn("dust2", repr(sp.params))
 
         # Check properties
         self.assertGreater(len(sp.wavelengths), 0)
@@ -31,12 +36,16 @@ class TestFSPSCompatibility(unittest.TestCase):
         self.assertGreater(len(sp.zlegend), 0)
         self.assertGreater(len(sp.emline_wavelengths), 0)
         self.assertEqual(len(sp.libraries), 3)
+        self.assertGreater(sp.solar_metallicity, 0.0)
 
         # Check get_spectrum
         wave, spec = sp.get_spectrum(tage=10.0, peraa=False)
         self.assertEqual(len(wave), len(sp.wavelengths))
         self.assertEqual(len(spec), len(sp.wavelengths))
         self.assertTrue(np.all(np.isfinite(spec)))
+        self.assertGreater(sp.stellar_mass, 0.0)
+        self.assertTrue(np.isfinite(sp.dust_mass))
+        self.assertEqual(len(sp.emline_luminosity), sp.context.nemline)
 
         # Check get_spectrum with peraa
         wave, spec_aa = sp.get_spectrum(tage=10.0, peraa=True)
@@ -46,6 +55,10 @@ class TestFSPSCompatibility(unittest.TestCase):
         mags = sp.get_mags(tage=10.0)
         self.assertEqual(len(mags), sp.context.nbands)
         self.assertTrue(np.all(np.isfinite(mags)))
+
+        # Check get_mags with bands filter
+        mags_sub = sp.get_mags(tage=10.0, bands=[0, 1, 2])
+        self.assertEqual(len(mags_sub), 3)
 
 
 if __name__ == "__main__":

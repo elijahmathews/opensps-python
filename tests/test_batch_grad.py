@@ -72,6 +72,33 @@ class TestBatchGradients(unittest.TestCase):
             rel_err_fagn = abs(adj_fagn[m] - fd_fagn) / max(abs(fd_fagn), 1e-4)
             self.assertLess(rel_err_fagn, 1e-4, f"fagn gradient mismatch for model {m}")
 
+    def test_gradient_with_weights_z_and_cotangents(self):
+        N = 2
+        nt = self.ctx.ntfull
+        nz = self.ctx.nz
+        wz = np.zeros((N, nt, nz), dtype=np.float64)
+        wz[:, 0, 0] = 1.0
+
+        batch = self.ctx.batch({"dust2": [0.3, 0.7]}, ssp_weights_z=wz)
+        grad_res = batch.compute_gradients(
+            mags_bar=np.ones((N, self.ctx.nbands)),
+            mass_bar=np.ones(N),
+            lbol_bar=np.ones(N),
+        )
+
+        self.assertIsNotNone(grad_res.weights_z_bar)
+        self.assertEqual(grad_res.weights_z_bar.shape, (N, nt, nz))
+        self.assertIn("dust2", grad_res.params_bar)
+
+    def test_cotangent_validation_errors(self):
+        batch = self.ctx.batch({"dust2": [0.2, 0.4]})
+        # Wrong mags_bar shape
+        with self.assertRaises(ValueError):
+            batch.compute_gradients(mags_bar=np.ones((3, self.ctx.nbands)))
+        # Wrong mass_bar shape
+        with self.assertRaises(ValueError):
+            batch.compute_gradients(mass_bar=np.ones(3))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -76,6 +76,39 @@ class TestBatch(unittest.TestCase):
         self.assertEqual(res.spec.shape, (N, self.ctx.nspec))
         self.assertTrue(np.all(np.isfinite(res.mags)))
 
+    def test_forward_batch_with_weights_z_and_zred(self):
+        N = 2
+        nt = self.ctx.ntfull
+        nz = self.ctx.nz
+
+        # Test both (N, nt, nz) and (nt, nz, N) shapes
+        wz_1 = np.zeros((N, nt, nz), dtype=np.float64)
+        wz_1[:, 0, 0] = 1.0
+
+        batch_1 = self.ctx.batch({"dust2": [0.2, 0.4]}, ssp_weights_z=wz_1, zred_mags=[0.1, 0.2])
+        res_1 = batch_1.compute(compute_spec=False)
+        self.assertEqual(res_1.mags.shape, (N, self.ctx.nbands))
+        self.assertIsNone(res_1.spec)
+
+        wz_2 = np.zeros((nt, nz, N), dtype=np.float64)
+        wz_2[0, 0, :] = 1.0
+        batch_2 = self.ctx.batch({"dust2": [0.2, 0.4]}, ssp_weights_z=wz_2)
+        res_2 = batch_2.compute(compute_spec=False)
+        self.assertEqual(res_2.mags.shape, (N, self.ctx.nbands))
+
+    def test_batch_validation_errors(self):
+        # Mismatched parameter lengths
+        with self.assertRaises(ValueError):
+            self.ctx.batch({"dust2": [0.1, 0.2], "tage": [1.0, 2.0, 3.0]})
+
+        # Invalid weights shape
+        with self.assertRaises(ValueError):
+            self.ctx.batch({"dust2": [0.1, 0.2]}, ssp_weights=np.zeros((3, self.ctx.ntfull)))
+
+        # Invalid weights_z shape
+        with self.assertRaises(ValueError):
+            self.ctx.batch({"dust2": [0.1, 0.2]}, ssp_weights_z=np.zeros((2, 5)))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -44,6 +44,11 @@ class StellarPopulation:
 
         self._ctx = Context(zmet=zmet, isoc=isoc, spec=spec, dust=dust)
         self.params = _ParamDict(self._ctx)
+        self._stellar_mass = 0.0
+        self._dust_mass = 0.0
+        self._log_lbol = 0.0
+        self._sfr = 0.0
+        self._emline_luminosity = None
 
         # Configure initial flags
         self.params["compute_vega_mags"] = 1 if compute_vega_mags else 0
@@ -84,6 +89,38 @@ class StellarPopulation:
         """Tuple of (isoc_type, spec_type, dust_type)."""
         return ("mist", "miles", "DL07")
 
+    @property
+    def solar_metallicity(self) -> float:
+        """Solar metallicity Z_sun in mass fraction."""
+        return self._ctx.zsol
+
+    @property
+    def stellar_mass(self) -> float:
+        """Surviving stellar mass in solar masses."""
+        return self._stellar_mass
+
+    @property
+    def dust_mass(self) -> float:
+        """Dust mass in solar masses."""
+        return self._dust_mass
+
+    @property
+    def log_lbol(self) -> float:
+        """Log10 bolometric luminosity in L_sun."""
+        return self._log_lbol
+
+    @property
+    def sfr(self) -> float:
+        """Star formation rate in M_sun / yr."""
+        return self._sfr
+
+    @property
+    def emline_luminosity(self) -> np.ndarray:
+        """Nebular emission line luminosities in L_sun."""
+        if self._emline_luminosity is None:
+            return np.zeros(self._ctx.nemline)
+        return self._emline_luminosity
+
     def get_spectrum(
         self,
         tage: float = 0.0,
@@ -108,7 +145,12 @@ class StellarPopulation:
         if tage > 0:
             self.params["tage"] = tage
             batch = self._ctx.batch({"tage": tage})
-            res = batch.compute(compute_spec=True)
+            res = batch.compute(compute_spec=True, compute_emlines=True)
+            self._stellar_mass = float(res.mass[0])
+            self._dust_mass = float(res.mdust[0])
+            self._log_lbol = float(res.lbol[0])
+            self._sfr = float(res.sfr[0])
+            self._emline_luminosity = res.emlines[0]
             spec = res.spec[0]
             if peraa:
                 c_light = 2.99792458e18  # A / s
@@ -144,8 +186,12 @@ class StellarPopulation:
             self.params["tage"] = tage
             batch = self._ctx.batch({"tage": tage})
             res = batch.compute(compute_spec=False)
-            return res.mags[0]
+            mags = res.mags[0]
         else:
             batch = self._ctx.batch({"tage": 10.0})
             res = batch.compute(compute_spec=False)
-            return res.mags[0]
+            mags = res.mags[0]
+
+        if bands is not None:
+            return mags[bands]
+        return mags

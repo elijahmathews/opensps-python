@@ -57,8 +57,41 @@ class TestContext(unittest.TestCase):
             ctx["tage"] = 10.0
             ctx["add_neb_emission"] = 1
             ctx["imf_type"] = 2
+            ctx["add_dust_emission"] = False  # bool
+            ctx["smooth_velocity"] = True      # bool
             ctx.set_fast_mode(True)
             ctx.set_fast_mode(False)
+
+            with self.assertRaises(opensps.OpenSPSError):
+                ctx.set_param("nonexistent_param", 123.45)
+
+    def test_destroyed_context_error(self):
+        ctx = opensps.Context(zmet=1, isoc="mist", spec="miles", dust="DL07")
+        ctx.destroy()
+        with self.assertRaises(RuntimeError):
+            _ = ctx.handle
+        with self.assertRaises(RuntimeError):
+            _ = ctx.nspec
+
+    def test_context_operator_methods(self):
+        with opensps.Context(zmet=1, isoc="mist", spec="miles", dust="DL07") as ctx:
+            with self.assertRaises(opensps.OpenSPSError):
+                ctx.evaluate_ssp_operator()
+
+            ctx.build_ssp_operator()
+            self.assertTrue(ctx.has_ssp_operator)
+
+            # Evaluate directly through context method
+            mass, lbol, spec = ctx.evaluate_ssp_operator(imf_type=2, imf_params=[1.3, 2.3, 2.3, 0.0, 0.0])
+            self.assertEqual(len(mass), ctx.ntfull)
+
+            ctx.free_ssp_operator()
+            self.assertFalse(ctx.has_ssp_operator)
+
+    def test_error_class_repr(self):
+        err = opensps.OpenSPSError(101, "Test error message")
+        self.assertEqual(err.status, 101)
+        self.assertIn("Test error message", str(err))
 
     def test_compute_ssp(self):
         with opensps.Context(zmet=1, isoc="mist", spec="miles", dust="DL07") as ctx:

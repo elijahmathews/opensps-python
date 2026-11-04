@@ -58,6 +58,7 @@ class CSPBatch:
         # Determine batch size N
         self.n_models = self._determine_n(all_params, ssp_weights, ssp_weights_z, zred_mags)
         self._packed_names, self._packed_values, self._val_keepalive = self._pack_params(all_params, self.n_models)
+        self._w_f, self._wz_f = self._prepare_weights()
 
     def _determine_n(self, params, ssp_weights, ssp_weights_z, zred_mags) -> int:
         n = 1
@@ -124,14 +125,15 @@ class CSPBatch:
             wz = np.asarray(self._ssp_weights_z, dtype=np.float64)
             nt = self._context.ntfull
             nz = self._context.nz
-            if wz.shape == (self.n_models, nz, nt):
-                # transpose (0, 1, 2) -> (2, 1, 0) for (nt, nz, N)
+            if wz.shape == (self.n_models, nt, nz):
+                wz_f = np.asfortranarray(wz.transpose(1, 2, 0))
+            elif wz.shape == (self.n_models, nz, nt):
                 wz_f = np.asfortranarray(wz.transpose(2, 1, 0))
             elif wz.shape == (nt, nz, self.n_models):
                 wz_f = np.asfortranarray(wz)
             else:
                 raise ValueError(
-                    f"ssp_weights_z shape {wz.shape} invalid; expected ({self.n_models}, {nz}, {nt})"
+                    f"ssp_weights_z shape {wz.shape} invalid; expected ({self.n_models}, {nt}, {nz}) or ({nt}, {nz}, {self.n_models})"
                 )
 
         return w_f, wz_f
@@ -297,19 +299,34 @@ class CSPBatch:
         mb_f = None
         if mags_bar is not None:
             mb = np.asarray(mags_bar, dtype=np.float64)
-            mb_f = np.asfortranarray(mb.T if mb.shape == (n, nbands) else mb)
+            if mb.shape != (n, nbands):
+                raise ValueError(f"mags_bar shape {mb.shape} does not match (n_models={n}, nbands={nbands})")
+            mb_f = np.asfortranarray(mb.T)
 
         sb_f = None
         if spec_bar is not None:
             sb = np.asarray(spec_bar, dtype=np.float64)
-            sb_f = np.asfortranarray(sb.T if sb.shape == (n, nspec) else sb)
+            if sb.shape != (n, nspec):
+                raise ValueError(f"spec_bar shape {sb.shape} does not match (n_models={n}, nspec={nspec})")
+            sb_f = np.asfortranarray(sb.T)
 
-        mass_b_c = np.ascontiguousarray(mass_bar, dtype=np.float64) if mass_bar is not None else None
-        lbol_b_c = np.ascontiguousarray(lbol_bar, dtype=np.float64) if lbol_bar is not None else None
+        mass_b_c = None
+        if mass_bar is not None:
+            msb = np.asarray(mass_bar, dtype=np.float64)
+            if msb.shape != (n,):
+                raise ValueError(f"mass_bar shape {msb.shape} does not match (n_models={n},)")
+            mass_b_c = np.ascontiguousarray(msb)
+
+        lbol_b_c = None
+        if lbol_bar is not None:
+            lb = np.asarray(lbol_bar, dtype=np.float64)
+            if lb.shape != (n,):
+                raise ValueError(f"lbol_bar shape {lb.shape} does not match (n_models={n},)")
+            lbol_b_c = np.ascontiguousarray(lb)
 
         # Adjoint outputs (gradients)
         raw_pbar = np.zeros((NBGRAD, n), dtype=np.float64, order="F")
-        w_f, wz_f = self._prepare_weights()
+        w_f, wz_f = self._w_f, self._wz_f
         w_bar = np.zeros((ntfull, n), dtype=np.float64, order="F") if w_f is not None else None
         wz_bar = np.zeros((ntfull, nz, n), dtype=np.float64, order="F") if wz_f is not None else None
 
@@ -369,5 +386,5 @@ class CSPBatch:
             params_bar=pbar_dict,
             raw_params_bar=raw_pbar.copy(),
             weights_bar=w_bar.T.copy() if w_bar is not None else None,
-            weights_z_bar=wz_bar.transpose(2, 1, 0).copy() if wz_bar is not None else None,
+            weights_z_bar=wz_bar.transpose(2, 0, 1).copy() if wz_bar is not None else None,
         )
