@@ -9,6 +9,8 @@ Modern, high-throughput Python interface for [libopensps](https://github.com/eli
 - **Batched SSP Operators (`opensps.SSPOperator`)**: Decouples isochrones from IMF integrals, allowing IMF slopes, characteristic masses, and bounds to vary freely per galaxy in batches, or fast direct evaluation.
 - **Drop-in `python-fsps` Compatibility (`opensps.StellarPopulation`)**: Near drop-in compatibility with legacy `fsps.StellarPopulation` for seamless integration into Prospector and existing astronomy pipelines.
 - **PyTorch Autograd Integration (`opensps.torch.csp_batch`)**: Native differentiable forward model (`torch.autograd.Function`) for deep learning, simulation-based inference (SBI), and Hamiltonian Monte Carlo (HMC/NUTS).
+- **JAX `custom_vjp` Integration (`opensps.jax.csp_batch`)**: Differentiable vector-Jacobian products compatible with JAX transformations (`jax.grad`, `jax.vjp`).
+- **Zero-Copy GPU Memory Access**: Retain computed spectral matrices on accelerator VRAM (e.g. AMD Radeon/ROCm or NVIDIA GPUs) to minimize PCIe crosstalk in GPU-resident likelihoods.
 
 ## Quickstart
 
@@ -82,24 +84,62 @@ wave, spec = sp.get_spectrum(tage=10.0)
 mags = sp.get_mags(tage=10.0)
 ```
 
-### 5. Differentiable PyTorch Modeling
+### 5. Differentiable PyTorch & JAX Modeling
 
+#### PyTorch Autograd:
 ```python
 import torch
 import opensps
 import opensps.torch as sytorch
 
 ctx = opensps.Context(zmet=-1, isoc="mist", spec="miles", dust="DL07")
+ctx["tage"] = 10.0
 
 dust2 = torch.tensor([0.2, 0.5], requires_grad=True, dtype=torch.float64)
-tage = torch.tensor([5.0, 10.0], requires_grad=True, dtype=torch.float64)
+fagn = torch.tensor([0.05, 0.15], requires_grad=True, dtype=torch.float64)
 
-mags, spec, mass, lbol = sytorch.csp_batch(ctx, {"dust2": dust2, "tage": tage})
+mags, spec, mass, lbol = sytorch.csp_batch(ctx, {"dust2": dust2, "fagn": fagn})
 
 loss = mags.sum()
 loss.backward()
 
-print("PyTorch dust2 gradient:", dust2.grad)
+print("dL / d(dust2):", dust2.grad)
+```
+
+#### JAX `custom_vjp`:
+```python
+import jax
+import jax.numpy as jnp
+import opensps
+import opensps.jax as syjax
+
+ctx = opensps.Context(zmet=-1, isoc="mist", spec="miles", dust="DL07")
+ctx["tage"] = 10.0
+
+def loss_fn(p_dust, p_fagn):
+    mags, spec, mass, lbol = syjax.csp_batch(ctx, {"dust2": p_dust, "fagn": p_fagn})
+    return jnp.sum(mags)
+
+j_dust2 = jnp.array([0.2, 0.5])
+j_fagn = jnp.array([0.05, 0.15])
+
+grad_fn = jax.grad(loss_fn, argnums=(0, 1))
+g_dust, g_fagn = grad_fn(j_dust2, j_fagn)
+print("JAX dL / d(dust2):", g_dust)
+```
+
+### 6. Zero-Copy GPU Memory Access (Minimizing Host Crosstalk)
+
+When `libopensps` is compiled with GPU target offload (e.g. on AMD ROCm or NVIDIA CUDA), the computed batch spectra remain directly in GPU VRAM:
+
+```python
+# Pass compute_spec=False or spec=None to compute without PCIe host transfers
+batch = ctx.batch(params)
+res = batch.compute(compute_spec=False)
+
+# Retrieve raw GPU memory address of the spectral matrix [nspec x n_models]
+gpu_addr, nspec, n_models, bytes_per_elem = ctx.get_batch_spec_device_ptr()
+print(f"Device VRAM address: 0x{gpu_addr:x} ({nspec} x {n_models})")
 ```
 
 ## Running Tests
