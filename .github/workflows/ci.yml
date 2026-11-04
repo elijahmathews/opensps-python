@@ -48,7 +48,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install "numpy>=2.2.0"
+          pip install "numpy>=2.2.0" coverage
 
       - name: Build libopensps
         run: |
@@ -56,11 +56,21 @@ jobs:
           meson setup build --buildtype=release -Dtests=true
           ninja -C build
 
-      - name: Run Python unit tests
+      - name: Run Python unit tests with coverage
         env:
           OPENSPS_LIB: ${{ github.workspace }}/libopensps/build/src/libopensps.so
           OPENSPS_DATA_HOME: ${{ github.workspace }}/libopensps/tests/data/opensps-test-data
           PYTHONPATH: ${{ github.workspace }}/opensps-python/src
         run: |
           cd opensps-python
-          python -m unittest discover -s tests
+          python -m coverage run --source=opensps -m unittest discover -s tests
+          python -m coverage xml -o coverage.xml
+
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ github.workspace }}/opensps-python/coverage.xml
+          flags: python-${{ matrix.python-version }}
+          fail_ci_if_error: true

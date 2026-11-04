@@ -1,4 +1,18 @@
-# opensps
+<p align="center">
+  <img src="assets/logo.svg" alt="OpenSPS logo" width="180px" height="180px" />
+</p>
+
+<h1 align="center">opensps</h1>
+
+<p align="center">
+  <strong>High-Throughput, Hardware-Accelerated Stellar Population Synthesis for Python</strong>
+</p>
+
+<p align="center">
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <img src="https://img.shields.io/github/actions/workflow/status/elijahmathews/opensps-python/ci.yml" alt="GitHub CI Status">
+  <img src="https://img.shields.io/codecov/c/github/elijahmathews/opensps-python" alt="Codecov Status">
+</p>
 
 Modern, high-throughput Python interface for [libopensps](https://github.com/elijahmathews/libopensps), a modernized and accelerated Flexible Stellar Population Synthesis (FSPS) library.
 
