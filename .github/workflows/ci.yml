@@ -19,25 +19,26 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
 
     steps:
       - name: Check out opensps-python
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: opensps-python
 
       - name: Check out libopensps
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: elijahmathews/libopensps
           ref: dev/c-api-batch-gradients
           path: libopensps
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
 
       - name: Install system build dependencies
         run: |
@@ -47,7 +48,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install numpy
+          pip install "numpy>=2.2.0"
 
       - name: Build libopensps
         run: |

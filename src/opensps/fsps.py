@@ -1,7 +1,9 @@
 """Drop-in compatibility layer with python-fsps (StellarPopulation)."""
 
+from __future__ import annotations
+
 import numpy as np
-from typing import Dict, List, Optional, Tuple, Union, Any
+from typing import Dict, List, Optional, Sequence, Tuple, Union, Any
 from opensps.context import Context
 
 
