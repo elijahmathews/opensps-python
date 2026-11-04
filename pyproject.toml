@@ -1,0 +1,44 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "opensps"
+version = "0.1.0"
+description = "High-performance Python interface to libopensps stellar population synthesis"
+readme = "README.md"
+license = {file = "LICENSE.md"}
+authors = [
+    {name = "OpenSPS Contributors"}
+]
+keywords = ["astronomy", "astrophysics", "stellar-population-synthesis", "SED-fitting", "machine-learning"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "numpy>=1.18.0",
+]
+
+[project.optional-dependencies]
+torch = ["torch>=1.10.0"]
+jax = ["jax>=0.3.0"]
+test = [
+    "pytest>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/elijahmathews/opensps-python"
+Repository = "https://github.com/elijahmathews/opensps-python.git"
+"Bug Tracker" = "https://github.com/elijahmathews/opensps-python/issues"
