@@ -262,6 +262,27 @@ _LIB.opensps_context_compute_csp_batch_grad.argtypes = [
 ]
 _LIB.opensps_context_compute_csp_batch_grad.restype = None
 
+# Device Spectra
+_LIB.opensps_context_batch_spec_device.argtypes = [
+    c_int,
+    POINTER(c_void_p),
+    POINTER(c_int),
+    POINTER(c_int),
+    POINTER(c_int),
+    POINTER(c_int),
+]
+_LIB.opensps_context_batch_spec_device.restype = None
+
+_LIB.opensps_context_batch_spec_host.argtypes = [
+    c_int,
+    POINTER(c_void_p),
+    POINTER(c_int),
+    POINTER(c_int),
+    POINTER(c_int),
+    POINTER(c_int),
+]
+_LIB.opensps_context_batch_spec_host.restype = None
+
 # SSP Operators
 _LIB.opensps_context_build_ssp_ops.argtypes = [c_int, c_int, POINTER(c_int)]
 _LIB.opensps_context_build_ssp_ops.restype = None

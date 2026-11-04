@@ -293,6 +293,32 @@ class Context:
             self._ssp_op.all_metallicities = False
         return self._ssp_op.evaluate(imf_type=imf_type, imf_params=imf_params)
 
+    def get_batch_spec_device_ptr(self) -> Tuple[int, int, int, int]:
+        """Get the on-device memory address of the last computed batch spectra.
+
+        Returns
+        -------
+        device_ptr : int
+            Raw GPU device pointer address (suitable for zero-copy wrapping via HIP/ROCm/PyTorch).
+        nspec : int
+            Number of spectral wavelengths.
+        n_models : int
+            Number of models in the batch.
+        bytes_per_elem : int
+            Bytes per value (4 for FP32, 8 for FP64).
+        """
+        ptr = _c_api.c_void_p()
+        ns = _c_api.c_int(0)
+        nm = _c_api.c_int(0)
+        nb = _c_api.c_int(0)
+        status = _c_api.c_int(0)
+        _c_api._LIB.opensps_context_batch_spec_device(
+            self.handle, _c_api.byref(ptr), _c_api.byref(ns), _c_api.byref(nm), _c_api.byref(nb), _c_api.byref(status)
+        )
+        _c_api.check_status(status.value, "batch_spec_device")
+        addr = ptr.value if ptr.value is not None else 0
+        return addr, ns.value, nm.value, nb.value
+
     # -------------------------------------------------------------------------
     # Single Computations
     # -------------------------------------------------------------------------
