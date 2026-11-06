@@ -8,6 +8,14 @@ import opensps
 import opensps.torch
 import opensps.jax
 
+try:
+    import jax
+    import jax.numpy as jnp
+    _HAS_JAX = True
+except ImportError:
+    _HAS_JAX = False
+
+
 
 class TestMLFrameworks(unittest.TestCase):
     @classmethod
@@ -98,42 +106,33 @@ class TestMLFrameworks(unittest.TestCase):
             self.assertTrue(torch.all(torch.isfinite(dust2.grad)))
             self.assertTrue(torch.all(torch.isfinite(fagn.grad)))
 
+    @unittest.skipUnless(_HAS_JAX, "JAX is not installed")
     def test_jax_custom_vjp_real_or_mock(self):
-        try:
-            import jax
-            import jax.numpy as jnp
-            has_jax = True
-        except ImportError:
-            has_jax = False
+        j_dust2 = jnp.array([0.2, 0.5])
+        j_fagn = jnp.array([0.05, 0.15])
 
-        if has_jax:
-            j_dust2 = jnp.array([0.2, 0.5])
-            j_fagn = jnp.array([0.05, 0.15])
+        def loss_fn(p_dust, p_fagn):
+            m, s, ma, lb = opensps.jax.csp_batch(self.ctx, {"dust2": p_dust, "fagn": p_fagn})
+            return jnp.sum(m)
 
-            def loss_fn(p_dust, p_fagn):
-                m, s, ma, lb = opensps.jax.csp_batch(self.ctx, {"dust2": p_dust, "fagn": p_fagn})
-                return jnp.sum(m)
+        mags, spec, mass, lbol = opensps.jax.csp_batch(self.ctx, {"dust2": j_dust2, "fagn": j_fagn})
+        self.assertEqual(mags.shape, (2, self.ctx.nbands))
+        self.assertEqual(spec.shape, (2, self.ctx.nspec))
 
-            mags, spec, mass, lbol = opensps.jax.csp_batch(self.ctx, {"dust2": j_dust2, "fagn": j_fagn})
-            self.assertEqual(mags.shape, (2, self.ctx.nbands))
-            self.assertEqual(spec.shape, (2, self.ctx.nspec))
+        grad_fn = jax.grad(loss_fn, argnums=(0, 1))
+        g_dust, g_fagn = grad_fn(j_dust2, j_fagn)
 
-            grad_fn = jax.grad(loss_fn, argnums=(0, 1))
-            g_dust, g_fagn = grad_fn(j_dust2, j_fagn)
-
-            self.assertTrue(jnp.all(jnp.isfinite(g_dust)))
-            self.assertTrue(jnp.all(jnp.isfinite(g_fagn)))
+        self.assertTrue(jnp.all(jnp.isfinite(g_dust)))
+        self.assertTrue(jnp.all(jnp.isfinite(g_fagn)))
 
     # ---- JAX transformations (regression: the primitive used to call np.asarray on tracers, so
     # ---- jit, jit+grad and vmap raised TracerArrayConversionError) ----
 
     def _jax_inputs(self):
-        import jax.numpy as jnp
         return jnp.array([0.2, 0.5]), jnp.array([0.05, 0.15])
 
+    @unittest.skipUnless(_HAS_JAX, "JAX is not installed")
     def test_jax_jit_matches_eager(self):
-        import jax
-        import jax.numpy as jnp
         dust2, fagn = self._jax_inputs()
 
         def f(d, a):
@@ -145,8 +144,8 @@ class TestMLFrameworks(unittest.TestCase):
             self.assertEqual(e.shape, j.shape)
             np.testing.assert_array_equal(np.asarray(e), np.asarray(j))
 
+    @unittest.skipUnless(_HAS_JAX, "JAX is not installed")
     def test_jax_jit_grad_matches_batch_gradients(self):
-        import jax
         dust2, fagn = self._jax_inputs()
 
         def loss(d, a):
@@ -161,9 +160,8 @@ class TestMLFrameworks(unittest.TestCase):
             np.testing.assert_array_equal(np.asarray(got), np.asarray(eager))
             np.testing.assert_allclose(np.asarray(got), ref.params_bar[name], rtol=1e-4)
 
+    @unittest.skipUnless(_HAS_JAX, "JAX is not installed")
     def test_jax_vmap_matches_loop(self):
-        import jax
-        import jax.numpy as jnp
         tage = jnp.array([3.0, 8.0])
 
         def f(d):
@@ -179,9 +177,8 @@ class TestMLFrameworks(unittest.TestCase):
         self.assertEqual(g.shape, batched.shape)
         np.testing.assert_allclose(np.asarray(g[1]), np.asarray(jax.grad(f)(batched[1])), rtol=1e-6)
 
+    @unittest.skipUnless(_HAS_JAX, "JAX is not installed")
     def test_jax_scalar_parameter_gradient_is_sum_over_models(self):
-        import jax
-        import jax.numpy as jnp
         tage = jnp.array([3.0, 5.0, 8.0])
 
         g_scalar = jax.grad(lambda d: opensps.jax.csp_batch(self.ctx, {"dust2": d, "tage": tage})[0].sum())(jnp.float32(0.3))
@@ -191,9 +188,8 @@ class TestMLFrameworks(unittest.TestCase):
         self.assertEqual(g_scalar.shape, ())
         np.testing.assert_allclose(float(g_scalar), float(g_vector.sum()), rtol=1e-5)
 
+    @unittest.skipUnless(_HAS_JAX, "JAX is not installed")
     def test_jax_ssp_weights_under_jit(self):
-        import jax
-        import jax.numpy as jnp
         rng = np.random.default_rng(0)
         w = np.abs(rng.normal(size=(2, self.ctx.ntfull)))
         w = jnp.asarray(w / w.sum(axis=1, keepdims=True), dtype=jnp.float32)
