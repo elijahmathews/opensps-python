@@ -64,7 +64,8 @@ class CSPBatch:
         n = 1
         for k, v in params.items():
             if isinstance(v, (np.ndarray, list, tuple)):
-                n = max(n, len(v))
+                # np.size, not len: a 0-d array has no length
+                n = max(n, np.size(v))
         if ssp_weights is not None:
             sw = np.asarray(ssp_weights)
             # Accept (N, ntfull) or (ntfull, N)
@@ -91,10 +92,11 @@ class CSPBatch:
         keepalive = []
         for name, val in params.items():
             val_arr = np.asarray(val, dtype=np.float64)
-            if val_arr.ndim == 0 or len(val_arr) == 1:
-                val_full = np.full(n, float(val_arr), dtype=np.float64)
+            if val_arr.size == 1:
+                # A scalar or a length-1 array of any shape; float() on a non-0-d array raises in NumPy >= 2
+                val_full = np.full(n, val_arr.item(), dtype=np.float64)
             else:
-                val_full = np.ascontiguousarray(val_arr, dtype=np.float64)
+                val_full = np.ascontiguousarray(val_arr, dtype=np.float64).reshape(-1)
                 if len(val_full) != n:
                     raise ValueError(f"Parameter '{name}' has length {len(val_full)}, expected {n}")
 

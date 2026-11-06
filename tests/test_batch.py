@@ -109,6 +109,35 @@ class TestBatch(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.ctx.batch({"dust2": [0.1, 0.2]}, ssp_weights_z=np.zeros((2, 5)))
 
+    def test_length_one_and_zero_dim_parameters(self):
+        # Regression: float() on a length-1 (non-0-d) array raises TypeError in NumPy >= 2, so a
+        # one-model batch given as [x], np.array([x]) or np.array([[x]]) used to fail.
+        ref = self.ctx.batch({"dust2": 0.3, "tage": 5.0}).compute()
+        for dust2, tage in [
+            ([0.3], [5.0]),
+            ((0.3,), (5.0,)),
+            (np.array([0.3]), np.array([5.0])),
+            (np.array(0.3), np.array(5.0)),
+            (np.array([[0.3]]), np.array([[5.0]])),
+        ]:
+            batch = self.ctx.batch({"dust2": dust2, "tage": tage})
+            self.assertEqual(batch.n_models, 1)
+            res = batch.compute()
+            self.assertEqual(res.mags.shape, (1, self.ctx.nbands))
+            np.testing.assert_array_equal(res.mags, ref.mags)
+
+    def test_zero_dim_array_alongside_vector(self):
+        # Regression: len() of a 0-d ndarray raised in batch-size detection
+        batch = self.ctx.batch({"dust2": np.array(0.3), "tage": [2.0, 5.0, 8.0]})
+        self.assertEqual(batch.n_models, 3)
+        ref = self.ctx.batch({"dust2": 0.3, "tage": [2.0, 5.0, 8.0]}).compute()
+        np.testing.assert_array_equal(batch.compute().mags, ref.mags)
+
+    def test_length_one_parameter_broadcasts_over_batch(self):
+        res = self.ctx.batch({"tage": [2.0, 5.0, 8.0], "dust2": [0.3]}).compute()
+        ref = self.ctx.batch({"tage": [2.0, 5.0, 8.0], "dust2": 0.3}).compute()
+        np.testing.assert_array_equal(res.mags, ref.mags)
+
 
 if __name__ == "__main__":
     unittest.main()

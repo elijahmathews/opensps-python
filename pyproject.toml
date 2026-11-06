@@ -30,7 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 torch = ["torch>=2.2.0"]
-jax = ["jax>=0.4.30"]
+jax = ["jax>=0.4.34"]
 test = [
     "pytest>=8.0.0",
 ]

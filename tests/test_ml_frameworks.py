@@ -124,6 +124,84 @@ class TestMLFrameworks(unittest.TestCase):
             self.assertTrue(jnp.all(jnp.isfinite(g_dust)))
             self.assertTrue(jnp.all(jnp.isfinite(g_fagn)))
 
+    # ---- JAX transformations (regression: the primitive used to call np.asarray on tracers, so
+    # ---- jit, jit+grad and vmap raised TracerArrayConversionError) ----
+
+    def _jax_inputs(self):
+        import jax.numpy as jnp
+        return jnp.array([0.2, 0.5]), jnp.array([0.05, 0.15])
+
+    def test_jax_jit_matches_eager(self):
+        import jax
+        import jax.numpy as jnp
+        dust2, fagn = self._jax_inputs()
+
+        def f(d, a):
+            return opensps.jax.csp_batch(self.ctx, {"dust2": d, "fagn": a})
+
+        eager = f(dust2, fagn)
+        jitted = jax.jit(f)(dust2, fagn)
+        for e, j in zip(eager, jitted):
+            self.assertEqual(e.shape, j.shape)
+            np.testing.assert_array_equal(np.asarray(e), np.asarray(j))
+
+    def test_jax_jit_grad_matches_batch_gradients(self):
+        import jax
+        dust2, fagn = self._jax_inputs()
+
+        def loss(d, a):
+            return opensps.jax.csp_batch(self.ctx, {"dust2": d, "fagn": a})[0].sum()
+
+        g_dust, g_fagn = jax.jit(jax.grad(loss, argnums=(0, 1)))(dust2, fagn)
+        g_eager = jax.grad(loss, argnums=(0, 1))(dust2, fagn)
+
+        ref = self.ctx.batch({"dust2": np.asarray(dust2, dtype=np.float64), "fagn": np.asarray(fagn, dtype=np.float64)})
+        ref = ref.compute_gradients(mags_bar=np.ones((2, self.ctx.nbands)))
+        for got, eager, name in ((g_dust, g_eager[0], "dust2"), (g_fagn, g_eager[1], "fagn")):
+            np.testing.assert_array_equal(np.asarray(got), np.asarray(eager))
+            np.testing.assert_allclose(np.asarray(got), ref.params_bar[name], rtol=1e-4)
+
+    def test_jax_vmap_matches_loop(self):
+        import jax
+        import jax.numpy as jnp
+        tage = jnp.array([3.0, 8.0])
+
+        def f(d):
+            return opensps.jax.csp_batch(self.ctx, {"dust2": d, "tage": tage})[0].sum()
+
+        batched = jnp.array([[0.2, 0.5], [0.1, 0.3], [0.6, 0.9]])
+        out = jax.vmap(f)(batched)
+        self.assertEqual(out.shape, (3,))
+        np.testing.assert_allclose(np.asarray(out), np.array([float(f(b)) for b in batched]), rtol=1e-6)
+
+        # and through the reverse pass
+        g = jax.vmap(jax.grad(f))(batched)
+        self.assertEqual(g.shape, batched.shape)
+        np.testing.assert_allclose(np.asarray(g[1]), np.asarray(jax.grad(f)(batched[1])), rtol=1e-6)
+
+    def test_jax_scalar_parameter_gradient_is_sum_over_models(self):
+        import jax
+        import jax.numpy as jnp
+        tage = jnp.array([3.0, 5.0, 8.0])
+
+        g_scalar = jax.grad(lambda d: opensps.jax.csp_batch(self.ctx, {"dust2": d, "tage": tage})[0].sum())(jnp.float32(0.3))
+        g_vector = jax.grad(
+            lambda d: opensps.jax.csp_batch(self.ctx, {"dust2": d, "tage": tage})[0].sum()
+        )(jnp.full((3,), 0.3, dtype=jnp.float32))
+        self.assertEqual(g_scalar.shape, ())
+        np.testing.assert_allclose(float(g_scalar), float(g_vector.sum()), rtol=1e-5)
+
+    def test_jax_ssp_weights_under_jit(self):
+        import jax
+        import jax.numpy as jnp
+        rng = np.random.default_rng(0)
+        w = np.abs(rng.normal(size=(2, self.ctx.ntfull)))
+        w = jnp.asarray(w / w.sum(axis=1, keepdims=True), dtype=jnp.float32)
+        d = jnp.array([0.2, 0.4])
+        gw = jax.jit(jax.grad(lambda w_: opensps.jax.csp_batch(self.ctx, {"dust2": d}, ssp_weights=w_)[0].sum()))(w)
+        self.assertEqual(gw.shape, w.shape)
+        self.assertTrue(bool(jnp.all(jnp.isfinite(gw))))
+
 
 if __name__ == "__main__":
     unittest.main()
