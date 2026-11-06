@@ -90,3 +90,13 @@ class OpenSPSError(Exception):
         self.status = status
         self.message = message
         super().__init__(f"[libopensps error {status}]: {message}" if message else f"[libopensps error {status}]")
+
+
+class FeatureNotSupportedError(NotImplementedError):
+    """Raised when an operation requires an optional or newer libopensps capability."""
+    pass
+
+
+class IncompatibleLibraryError(RuntimeError):
+    """Raised when the loaded libopensps shared library version is incompatible."""
+    pass

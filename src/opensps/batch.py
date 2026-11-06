@@ -277,6 +277,12 @@ class CSPBatch:
         compute_indices: bool = False,
     ) -> CSPBatchGradResult:
         """Execute the reverse-mode adjoint pass to compute analytical gradients."""
+        if not _c_api.HAS_BATCH_GRAD:
+            from opensps.constants import FeatureNotSupportedError
+            raise FeatureNotSupportedError(
+                "Analytical gradients require a libopensps shared library with batch gradient support."
+            )
+
         n = self.n_models
         nbands = self._context.nbands
         nspec = self._context.nspec

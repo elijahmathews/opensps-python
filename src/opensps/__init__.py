@@ -8,20 +8,28 @@ A high-performance Python interface to libopensps, featuring:
 - Drop-in StellarPopulation compatibility with python-fsps for Prospector.
 """
 
+from opensps._version import __version__, __libopensps_supported__
 from opensps.constants import (
     BGRAD,
     PARAM_TO_BGRAD,
     BGRAD_TO_PARAM,
     NBGRAD,
     OpenSPSError,
+    FeatureNotSupportedError,
+    IncompatibleLibraryError,
 )
-from opensps._c_api import get_driver_version, get_nbgrad, get_grad_param_name
+from opensps._c_api import (
+    get_driver_version,
+    get_nbgrad,
+    get_grad_param_name,
+    HAS_BATCH_GRAD,
+    HAS_SSP_OPS,
+    HAS_DEVICE_PTR,
+)
 from opensps.context import Context
 from opensps.batch import CSPBatch, CSPBatchResult, CSPBatchGradResult
 from opensps.ssp import SSPOperator
 from opensps.fsps import StellarPopulation
-
-__version__ = "0.1.0"
 
 __all__ = [
     "Context",
@@ -35,7 +43,14 @@ __all__ = [
     "BGRAD_TO_PARAM",
     "NBGRAD",
     "OpenSPSError",
+    "FeatureNotSupportedError",
+    "IncompatibleLibraryError",
     "get_driver_version",
     "get_nbgrad",
     "get_grad_param_name",
+    "HAS_BATCH_GRAD",
+    "HAS_SSP_OPS",
+    "HAS_DEVICE_PTR",
+    "__version__",
+    "__libopensps_supported__",
 ]

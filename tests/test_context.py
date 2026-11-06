@@ -2,8 +2,10 @@
 
 import os
 import unittest
+from unittest.mock import patch
 import numpy as np
 import opensps
+from opensps.constants import FeatureNotSupportedError, IncompatibleLibraryError
 
 
 class TestContext(unittest.TestCase):
@@ -101,6 +103,44 @@ class TestContext(unittest.TestCase):
             self.assertEqual(lbol.shape, (ctx.ntfull,))
             self.assertTrue(np.all(mass > 0.0))
             self.assertTrue(np.all(np.isfinite(lbol)))
+
+    def test_package_versioning_and_capabilities(self):
+        self.assertEqual(opensps.__version__, "0.1.0")
+        self.assertEqual(opensps.__libopensps_supported__, ">=0.1.0,<0.3.0")
+        self.assertTrue(isinstance(opensps.HAS_BATCH_GRAD, bool))
+        self.assertTrue(isinstance(opensps.HAS_SSP_OPS, bool))
+        self.assertTrue(isinstance(opensps.HAS_DEVICE_PTR, bool))
+        self.assertTrue(issubclass(FeatureNotSupportedError, NotImplementedError))
+        self.assertTrue(issubclass(IncompatibleLibraryError, RuntimeError))
+
+    def test_capability_guard_ssp_ops(self):
+        with opensps.Context(zmet=1, isoc="mist", spec="miles", dust="DL07") as ctx:
+            with patch.object(opensps._c_api, "HAS_SSP_OPS", False):
+                with self.assertRaises(FeatureNotSupportedError):
+                    ctx.build_ssp_operator()
+
+                with self.assertRaises(FeatureNotSupportedError):
+                    opensps.SSPOperator(ctx)
+
+                self.assertFalse(ctx.has_ssp_operator)
+                # free_ssp_operator should return gracefully
+                ctx.free_ssp_operator()
+
+                with self.assertRaises(FeatureNotSupportedError):
+                    ctx.evaluate_ssp_operator()
+
+    def test_capability_guard_batch_grad(self):
+        with opensps.Context(zmet=1, isoc="mist", spec="miles", dust="DL07") as ctx:
+            batch = ctx.batch(tage=[1.0, 2.0])
+            with patch.object(opensps._c_api, "HAS_BATCH_GRAD", False):
+                with self.assertRaises(FeatureNotSupportedError):
+                    batch.compute_gradients()
+
+    def test_capability_guard_device_ptr(self):
+        with opensps.Context(zmet=1, isoc="mist", spec="miles", dust="DL07") as ctx:
+            with patch.object(opensps._c_api, "HAS_DEVICE_PTR", False):
+                with self.assertRaises(FeatureNotSupportedError):
+                    ctx.get_batch_spec_device_ptr()
 
 
 if __name__ == "__main__":

@@ -13,7 +13,13 @@ from ctypes import (
 import os
 import sys
 from typing import Optional, Tuple
-from opensps.constants import OpenSPSError
+from opensps.constants import OpenSPSError, FeatureNotSupportedError, IncompatibleLibraryError
+from opensps._version import (
+    __version__,
+    __libopensps_supported__,
+    MIN_C_API_VERSION,
+    MAX_C_API_VERSION,
+)
 
 # -----------------------------------------------------------------------------
 # Library Loader
@@ -61,18 +67,43 @@ def _find_library() -> str:
 _LIB = ctypes.CDLL(_find_library())
 
 # -----------------------------------------------------------------------------
-# Function Signatures
+# Driver Utilities & Version Negotiation
 # -----------------------------------------------------------------------------
 
-# Driver Utilities
-_LIB.opensps_get_driver_version.argtypes = [POINTER(c_int), POINTER(c_int), POINTER(c_int)]
-_LIB.opensps_get_driver_version.restype = None
+_DRIVER_VERSION: Optional[Tuple[int, int, int]] = None
+if hasattr(_LIB, "opensps_get_driver_version"):
+    _LIB.opensps_get_driver_version.argtypes = [POINTER(c_int), POINTER(c_int), POINTER(c_int)]
+    _LIB.opensps_get_driver_version.restype = None
 
-_LIB.opensps_get_nbgrad.argtypes = [POINTER(c_int)]
-_LIB.opensps_get_nbgrad.restype = None
+    maj, min_, pat = c_int(0), c_int(0), c_int(0)
+    _LIB.opensps_get_driver_version(byref(maj), byref(min_), byref(pat))
+    _DRIVER_VERSION = (maj.value, min_.value, pat.value)
 
-_LIB.opensps_get_grad_param_name.argtypes = [c_int, c_char_p, c_int, POINTER(c_int)]
-_LIB.opensps_get_grad_param_name.restype = None
+    if _DRIVER_VERSION < MIN_C_API_VERSION or _DRIVER_VERSION >= MAX_C_API_VERSION:
+        raise IncompatibleLibraryError(
+            f"Loaded libopensps C API version {_DRIVER_VERSION[0]}.{_DRIVER_VERSION[1]}.{_DRIVER_VERSION[2]} "
+            f"is incompatible with opensps-python {__version__} "
+            f"(requires C API >={MIN_C_API_VERSION[0]}.{MIN_C_API_VERSION[1]}.{MIN_C_API_VERSION[2]}, "
+            f"<{MAX_C_API_VERSION[0]}.0.0; compatible with libopensps {__libopensps_supported__})."
+        )
+else:
+    raise IncompatibleLibraryError(
+        f"Loaded libopensps does not export 'opensps_get_driver_version'. "
+        f"opensps-python {__version__} requires C API >={MIN_C_API_VERSION[0]}.{MIN_C_API_VERSION[1]}.{MIN_C_API_VERSION[2]} "
+        f"(compatible with libopensps {__libopensps_supported__})."
+    )
+
+# Dynamic Capability Negotiation (Feature Probing)
+HAS_BATCH_GRAD = hasattr(_LIB, "opensps_context_compute_csp_batch_grad") and hasattr(_LIB, "opensps_get_nbgrad")
+HAS_SSP_OPS = hasattr(_LIB, "opensps_context_build_ssp_ops") and hasattr(_LIB, "opensps_context_evaluate_ssp_op")
+HAS_DEVICE_PTR = hasattr(_LIB, "opensps_context_batch_spec_device")
+
+if HAS_BATCH_GRAD:
+    _LIB.opensps_get_nbgrad.argtypes = [POINTER(c_int)]
+    _LIB.opensps_get_nbgrad.restype = None
+
+    _LIB.opensps_get_grad_param_name.argtypes = [c_int, c_char_p, c_int, POINTER(c_int)]
+    _LIB.opensps_get_grad_param_name.restype = None
 
 _LIB.opensps_get_last_error.argtypes = [POINTER(c_int), c_char_p, c_int]
 _LIB.opensps_get_last_error.restype = None
@@ -234,75 +265,79 @@ _LIB.opensps_context_compute_csp_batch_parts.argtypes = [
 ]
 _LIB.opensps_context_compute_csp_batch_parts.restype = None
 
-_LIB.opensps_context_compute_csp_batch_grad.argtypes = [
-    c_int,
-    c_int,
-    c_int,
-    POINTER(c_char_p),
-    POINTER(POINTER(c_double)),
-    POINTER(c_double),  # ssp_weights
-    POINTER(c_double),  # ssp_weights_z
-    POINTER(c_double),  # zred_mags
-    POINTER(c_double),  # mags_bar
-    POINTER(c_double),  # spec_bar
-    POINTER(c_double),  # mass_bar
-    POINTER(c_double),  # lbol_bar
-    POINTER(c_double),  # mags
-    POINTER(c_double),  # spec
-    POINTER(c_double),  # mass
-    POINTER(c_double),  # lbol
-    POINTER(c_double),  # mdust
-    POINTER(c_double),  # sfr
-    POINTER(c_double),  # emlines
-    POINTER(c_double),  # indx
-    POINTER(c_double),  # params_bar
-    POINTER(c_double),  # weights_bar
-    POINTER(c_double),  # weights_z_bar
-    POINTER(c_int),     # status
-]
-_LIB.opensps_context_compute_csp_batch_grad.restype = None
+if HAS_BATCH_GRAD:
+    _LIB.opensps_context_compute_csp_batch_grad.argtypes = [
+        c_int,
+        c_int,
+        c_int,
+        POINTER(c_char_p),
+        POINTER(POINTER(c_double)),
+        POINTER(c_double),  # ssp_weights
+        POINTER(c_double),  # ssp_weights_z
+        POINTER(c_double),  # zred_mags
+        POINTER(c_double),  # mags_bar
+        POINTER(c_double),  # spec_bar
+        POINTER(c_double),  # mass_bar
+        POINTER(c_double),  # lbol_bar
+        POINTER(c_double),  # mags
+        POINTER(c_double),  # spec
+        POINTER(c_double),  # mass
+        POINTER(c_double),  # lbol
+        POINTER(c_double),  # mdust
+        POINTER(c_double),  # sfr
+        POINTER(c_double),  # emlines
+        POINTER(c_double),  # indx
+        POINTER(c_double),  # params_bar
+        POINTER(c_double),  # weights_bar
+        POINTER(c_double),  # weights_z_bar
+        POINTER(c_int),     # status
+    ]
+    _LIB.opensps_context_compute_csp_batch_grad.restype = None
 
 # Device Spectra
-_LIB.opensps_context_batch_spec_device.argtypes = [
-    c_int,
-    POINTER(c_void_p),
-    POINTER(c_int),
-    POINTER(c_int),
-    POINTER(c_int),
-    POINTER(c_int),
-]
-_LIB.opensps_context_batch_spec_device.restype = None
+if HAS_DEVICE_PTR:
+    _LIB.opensps_context_batch_spec_device.argtypes = [
+        c_int,
+        POINTER(c_void_p),
+        POINTER(c_int),
+        POINTER(c_int),
+        POINTER(c_int),
+        POINTER(c_int),
+    ]
+    _LIB.opensps_context_batch_spec_device.restype = None
 
-_LIB.opensps_context_batch_spec_host.argtypes = [
-    c_int,
-    POINTER(c_void_p),
-    POINTER(c_int),
-    POINTER(c_int),
-    POINTER(c_int),
-    POINTER(c_int),
-]
-_LIB.opensps_context_batch_spec_host.restype = None
+if hasattr(_LIB, "opensps_context_batch_spec_host"):
+    _LIB.opensps_context_batch_spec_host.argtypes = [
+        c_int,
+        POINTER(c_void_p),
+        POINTER(c_int),
+        POINTER(c_int),
+        POINTER(c_int),
+        POINTER(c_int),
+    ]
+    _LIB.opensps_context_batch_spec_host.restype = None
 
 # SSP Operators
-_LIB.opensps_context_build_ssp_ops.argtypes = [c_int, c_int, POINTER(c_int)]
-_LIB.opensps_context_build_ssp_ops.restype = None
+if HAS_SSP_OPS:
+    _LIB.opensps_context_build_ssp_ops.argtypes = [c_int, c_int, POINTER(c_int)]
+    _LIB.opensps_context_build_ssp_ops.restype = None
 
-_LIB.opensps_context_free_ssp_ops.argtypes = [c_int, POINTER(c_int)]
-_LIB.opensps_context_free_ssp_ops.restype = None
+    _LIB.opensps_context_free_ssp_ops.argtypes = [c_int, POINTER(c_int)]
+    _LIB.opensps_context_free_ssp_ops.restype = None
 
-_LIB.opensps_context_has_ssp_ops.argtypes = [c_int, POINTER(c_int), POINTER(c_int)]
-_LIB.opensps_context_has_ssp_ops.restype = None
+    _LIB.opensps_context_has_ssp_ops.argtypes = [c_int, POINTER(c_int), POINTER(c_int)]
+    _LIB.opensps_context_has_ssp_ops.restype = None
 
-_LIB.opensps_context_evaluate_ssp_op.argtypes = [
-    c_int,
-    c_int,
-    POINTER(c_double),
-    POINTER(c_double),
-    POINTER(c_double),
-    POINTER(c_double),
-    POINTER(c_int),
-]
-_LIB.opensps_context_evaluate_ssp_op.restype = None
+    _LIB.opensps_context_evaluate_ssp_op.argtypes = [
+        c_int,
+        c_int,
+        POINTER(c_double),
+        POINTER(c_double),
+        POINTER(c_double),
+        POINTER(c_double),
+        POINTER(c_int),
+    ]
+    _LIB.opensps_context_evaluate_ssp_op.restype = None
 
 
 # -----------------------------------------------------------------------------
@@ -321,6 +356,8 @@ def check_status(status: int, operation: str = ""):
 
 
 def get_driver_version() -> Tuple[int, int, int]:
+    if _DRIVER_VERSION is not None:
+        return _DRIVER_VERSION
     major = c_int(0)
     minor = c_int(0)
     patch = c_int(0)
@@ -329,12 +366,20 @@ def get_driver_version() -> Tuple[int, int, int]:
 
 
 def get_nbgrad() -> int:
+    if not HAS_BATCH_GRAD:
+        raise FeatureNotSupportedError(
+            "Analytical gradients require a libopensps shared library built with batch gradient support."
+        )
     nb = c_int(0)
     _LIB.opensps_get_nbgrad(byref(nb))
     return nb.value
 
 
 def get_grad_param_name(grad_idx: int) -> str:
+    if not HAS_BATCH_GRAD:
+        raise FeatureNotSupportedError(
+            "Analytical gradients require a libopensps shared library built with batch gradient support."
+        )
     buf = create_string_buffer(64)
     status = c_int(0)
     _LIB.opensps_get_grad_param_name(grad_idx, buf, 64, byref(status))

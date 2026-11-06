@@ -4,7 +4,7 @@ import numpy as np
 from ctypes import c_int, c_double, byref
 from typing import Optional, Sequence, Tuple
 from opensps import _c_api
-from opensps.constants import OpenSPSError
+from opensps.constants import OpenSPSError, FeatureNotSupportedError
 
 
 class SSPOperator:
@@ -16,6 +16,10 @@ class SSPOperator:
     """
 
     def __init__(self, context: "Context", all_metallicities: bool = False):
+        if not _c_api.HAS_SSP_OPS:
+            raise FeatureNotSupportedError(
+                "SSP operators require a libopensps shared library built with SSP operator support."
+            )
         self._context = context
         self.all_metallicities = all_metallicities
         self._build()

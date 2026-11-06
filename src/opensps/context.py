@@ -6,7 +6,7 @@ from typing import Dict, Optional, Sequence, Union, Tuple, Any
 from opensps import _c_api
 from opensps.batch import CSPBatch, CSPBatchResult
 from opensps.ssp import SSPOperator
-from opensps.constants import OpenSPSError
+from opensps.constants import OpenSPSError, FeatureNotSupportedError
 
 
 class Context:
@@ -257,12 +257,18 @@ class Context:
 
     def build_ssp_operator(self, all_metallicities: bool = False) -> SSPOperator:
         """Build and enable an SSP operator on this context for rapid IMF variations."""
+        if not _c_api.HAS_SSP_OPS:
+            raise FeatureNotSupportedError(
+                "SSP operators require a libopensps shared library built with SSP operator support."
+            )
         self._ssp_op = SSPOperator(self, all_metallicities=all_metallicities)
         return self._ssp_op
 
     @property
     def has_ssp_operator(self) -> bool:
         """Whether this context currently has an active SSP operator."""
+        if not _c_api.HAS_SSP_OPS:
+            return False
         val = c_int(0)
         status = c_int(0)
         _c_api._LIB.opensps_context_has_ssp_ops(self.handle, byref(val), byref(status))
@@ -271,6 +277,8 @@ class Context:
 
     def free_ssp_operator(self):
         """Release context-managed SSP operators."""
+        if not _c_api.HAS_SSP_OPS:
+            return
         if self._ssp_op is not None:
             self._ssp_op.free()
             self._ssp_op = None
@@ -285,6 +293,10 @@ class Context:
         imf_params: Optional[Sequence[float]] = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Evaluate active SSP operator for an IMF."""
+        if not _c_api.HAS_SSP_OPS:
+            raise FeatureNotSupportedError(
+                "SSP operators require a libopensps shared library built with SSP operator support."
+            )
         if self._ssp_op is None:
             if not self.has_ssp_operator:
                 raise OpenSPSError(303, "No SSP operator has been built on this context.")
@@ -307,6 +319,10 @@ class Context:
         bytes_per_elem : int
             Bytes per value (4 for FP32, 8 for FP64).
         """
+        if not _c_api.HAS_DEVICE_PTR:
+            raise FeatureNotSupportedError(
+                "Device pointer access requires a libopensps shared library built with GPU offload support."
+            )
         ptr = _c_api.c_void_p()
         ns = _c_api.c_int(0)
         nm = _c_api.c_int(0)
