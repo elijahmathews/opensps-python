@@ -16,9 +16,8 @@ from typing import Optional, Tuple
 from opensps.constants import OpenSPSError, FeatureNotSupportedError, IncompatibleLibraryError
 from opensps._version import (
     __version__,
-    __libopensps_supported__,
-    MIN_C_API_VERSION,
-    MAX_C_API_VERSION,
+    __libopensps_c_api_supported__,
+    is_c_api_compatible,
 )
 
 # -----------------------------------------------------------------------------
@@ -79,18 +78,16 @@ if hasattr(_LIB, "opensps_get_driver_version"):
     _LIB.opensps_get_driver_version(byref(maj), byref(min_), byref(pat))
     _DRIVER_VERSION = (maj.value, min_.value, pat.value)
 
-    if _DRIVER_VERSION < MIN_C_API_VERSION or _DRIVER_VERSION >= MAX_C_API_VERSION:
+    if not is_c_api_compatible(_DRIVER_VERSION):
         raise IncompatibleLibraryError(
             f"Loaded libopensps C API version {_DRIVER_VERSION[0]}.{_DRIVER_VERSION[1]}.{_DRIVER_VERSION[2]} "
             f"is incompatible with opensps-python {__version__} "
-            f"(requires C API >={MIN_C_API_VERSION[0]}.{MIN_C_API_VERSION[1]}.{MIN_C_API_VERSION[2]}, "
-            f"<{MAX_C_API_VERSION[0]}.{MAX_C_API_VERSION[1]}.0; compatible with libopensps {__libopensps_supported__})."
+            f"(requires C API {__libopensps_c_api_supported__})."
         )
 else:
     raise IncompatibleLibraryError(
         f"Loaded libopensps does not export 'opensps_get_driver_version'. "
-        f"opensps-python {__version__} requires C API >={MIN_C_API_VERSION[0]}.{MIN_C_API_VERSION[1]}.{MIN_C_API_VERSION[2]} "
-        f"(compatible with libopensps {__libopensps_supported__})."
+        f"opensps-python {__version__} requires C API {__libopensps_c_api_supported__}."
     )
 
 # Dynamic Capability Negotiation (Feature Probing)

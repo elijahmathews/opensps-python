@@ -11,7 +11,6 @@ A high-performance Python interface to libopensps, featuring:
 from opensps._version import (
     __version__,
     __libopensps_c_api_supported__,
-    __libopensps_supported__,
 )
 from opensps.constants import (
     BGRAD,
@@ -57,5 +56,4 @@ __all__ = [
     "HAS_DEVICE_PTR",
     "__version__",
     "__libopensps_c_api_supported__",
-    "__libopensps_supported__",
 ]

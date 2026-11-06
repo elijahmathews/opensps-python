@@ -2,13 +2,18 @@
 
 __version__ = "0.1.0"
 
-# Stated compatibility range for libopensps C API specification.
-# Under SemVer pre-1.0 (0.y.z), 0.2.0 may introduce breaking changes,
-# so we conservatively support the 0.1.x series until 0.2.0 is validated.
-__libopensps_c_api_supported__ = ">=0.1.0,<0.2.0"
-__libopensps_supported__ = __libopensps_c_api_supported__
-
-# C API (driver) semantic version boundaries required by this binding
-# libopensps exposes OPENSPS_API_VERSION matching meson.build version (0.1.0)
+# C API version boundaries required by this binding (single source of truth)
 MIN_C_API_VERSION = (0, 1, 0)
 MAX_C_API_VERSION = (0, 2, 0)
+
+# Derived range specifier for human-readable reporting and packaging metadata
+__libopensps_c_api_supported__ = (
+    f">={MIN_C_API_VERSION[0]}.{MIN_C_API_VERSION[1]}.{MIN_C_API_VERSION[2]},"
+    f"<{MAX_C_API_VERSION[0]}.{MAX_C_API_VERSION[1]}.{MAX_C_API_VERSION[2]}"
+)
+
+
+def is_c_api_compatible(version: tuple[int, int, int]) -> bool:
+    """Check whether a loaded C API driver version tuple is supported."""
+    return MIN_C_API_VERSION <= version < MAX_C_API_VERSION
+

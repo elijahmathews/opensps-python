@@ -106,9 +106,14 @@ class TestContext(unittest.TestCase):
             self.assertTrue(np.all(np.isfinite(lbol)))
 
     def test_package_versioning_and_capabilities(self):
+        from opensps._version import is_c_api_compatible
         self.assertEqual(opensps.__version__, "0.1.0")
         self.assertEqual(opensps.__libopensps_c_api_supported__, ">=0.1.0,<0.2.0")
-        self.assertEqual(opensps.__libopensps_supported__, ">=0.1.0,<0.2.0")
+        self.assertTrue(is_c_api_compatible((0, 1, 0)))
+        self.assertTrue(is_c_api_compatible((0, 1, 5)))
+        self.assertFalse(is_c_api_compatible((0, 0, 9)))
+        self.assertFalse(is_c_api_compatible((0, 2, 0)))
+        self.assertFalse(is_c_api_compatible((1, 0, 0)))
         self.assertTrue(isinstance(opensps.HAS_BATCH_GRAD, bool))
         self.assertTrue(isinstance(opensps.HAS_SSP_OPS, bool))
         self.assertTrue(isinstance(opensps.HAS_DEVICE_PTR, bool))
