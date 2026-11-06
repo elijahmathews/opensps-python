@@ -84,7 +84,7 @@ if hasattr(_LIB, "opensps_get_driver_version"):
             f"Loaded libopensps C API version {_DRIVER_VERSION[0]}.{_DRIVER_VERSION[1]}.{_DRIVER_VERSION[2]} "
             f"is incompatible with opensps-python {__version__} "
             f"(requires C API >={MIN_C_API_VERSION[0]}.{MIN_C_API_VERSION[1]}.{MIN_C_API_VERSION[2]}, "
-            f"<{MAX_C_API_VERSION[0]}.0.0; compatible with libopensps {__libopensps_supported__})."
+            f"<{MAX_C_API_VERSION[0]}.{MAX_C_API_VERSION[1]}.0; compatible with libopensps {__libopensps_supported__})."
         )
 else:
     raise IncompatibleLibraryError(

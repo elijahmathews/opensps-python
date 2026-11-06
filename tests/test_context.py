@@ -21,8 +21,9 @@ class TestContext(unittest.TestCase):
 
     def test_version_and_metadata(self):
         major, minor, patch = opensps.get_driver_version()
-        self.assertEqual(major, 2)
+        self.assertEqual(major, 0)
         self.assertEqual(minor, 1)
+        self.assertEqual(patch, 0)
         self.assertEqual(opensps.get_nbgrad(), 33)
 
         name_fagn = opensps.get_grad_param_name(opensps.BGRAD.FAGN)
@@ -106,6 +107,7 @@ class TestContext(unittest.TestCase):
 
     def test_package_versioning_and_capabilities(self):
         self.assertEqual(opensps.__version__, "0.1.0")
+        self.assertEqual(opensps.__libopensps_c_api_supported__, ">=0.1.0,<0.2.0")
         self.assertEqual(opensps.__libopensps_supported__, ">=0.1.0,<0.2.0")
         self.assertTrue(isinstance(opensps.HAS_BATCH_GRAD, bool))
         self.assertTrue(isinstance(opensps.HAS_SSP_OPS, bool))

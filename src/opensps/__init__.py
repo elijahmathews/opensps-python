@@ -8,7 +8,11 @@ A high-performance Python interface to libopensps, featuring:
 - Drop-in StellarPopulation compatibility with python-fsps for Prospector.
 """
 
-from opensps._version import __version__, __libopensps_supported__
+from opensps._version import (
+    __version__,
+    __libopensps_c_api_supported__,
+    __libopensps_supported__,
+)
 from opensps.constants import (
     BGRAD,
     PARAM_TO_BGRAD,
@@ -52,5 +56,6 @@ __all__ = [
     "HAS_SSP_OPS",
     "HAS_DEVICE_PTR",
     "__version__",
+    "__libopensps_c_api_supported__",
     "__libopensps_supported__",
 ]
