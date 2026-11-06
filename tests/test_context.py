@@ -106,7 +106,7 @@ class TestContext(unittest.TestCase):
 
     def test_package_versioning_and_capabilities(self):
         self.assertEqual(opensps.__version__, "0.1.0")
-        self.assertEqual(opensps.__libopensps_supported__, ">=0.1.0,<0.3.0")
+        self.assertEqual(opensps.__libopensps_supported__, ">=0.1.0,<0.2.0")
         self.assertTrue(isinstance(opensps.HAS_BATCH_GRAD, bool))
         self.assertTrue(isinstance(opensps.HAS_SSP_OPS, bool))
         self.assertTrue(isinstance(opensps.HAS_DEVICE_PTR, bool))
