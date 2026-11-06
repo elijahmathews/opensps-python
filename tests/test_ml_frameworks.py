@@ -65,6 +65,39 @@ class TestMLFrameworks(unittest.TestCase):
             self.assertTrue(torch.all(torch.isfinite(dust2.grad)))
             self.assertTrue(torch.all(torch.isfinite(fagn.grad)))
 
+    def test_pytorch_autograd_gpu(self):
+        try:
+            import torch
+            has_torch = True
+        except ImportError:
+            has_torch = False
+
+        if has_torch and torch.cuda.is_available():
+            device = torch.device("cuda:0")
+            dust2 = torch.tensor([0.2, 0.5], dtype=torch.float64, device=device, requires_grad=True)
+            fagn = torch.tensor([0.05, 0.15], dtype=torch.float64, device=device, requires_grad=True)
+
+            mags, spec, mass, lbol = opensps.torch.csp_batch(
+                self.ctx,
+                params={"dust2": dust2, "fagn": fagn}
+            )
+            self.assertEqual(mags.device, device)
+            self.assertEqual(spec.device, device)
+            self.assertEqual(mags.shape, (2, self.ctx.nbands))
+            self.assertEqual(spec.shape, (2, self.ctx.nspec))
+
+            # GPU resident likelihood computation
+            target_mags = mags.detach() + 0.01
+            loss = torch.sum((mags - target_mags) ** 2)
+            loss.backward()
+
+            self.assertIsNotNone(dust2.grad)
+            self.assertIsNotNone(fagn.grad)
+            self.assertEqual(dust2.grad.device, device)
+            self.assertEqual(fagn.grad.device, device)
+            self.assertTrue(torch.all(torch.isfinite(dust2.grad)))
+            self.assertTrue(torch.all(torch.isfinite(fagn.grad)))
+
     def test_jax_custom_vjp_real_or_mock(self):
         try:
             import jax

@@ -21,7 +21,13 @@ if _HAS_TORCH:
             ssp_weights_tensor: Optional[torch.Tensor],
             *param_tensors: torch.Tensor,
         ):
+            device = (
+                param_tensors[0].device
+                if param_tensors
+                else (ssp_weights_tensor.device if ssp_weights_tensor is not None else torch.device("cpu"))
+            )
             # Save metadata for backward pass
+            ctx_obj.device = device
             ctx_obj.context = context
             ctx_obj.param_names = param_names
             ctx_obj.has_weights = ssp_weights_tensor is not None
@@ -41,15 +47,16 @@ if _HAS_TORCH:
             res = batch.compute(compute_spec=True)
 
             ctx_obj.batch = batch
-            mags_t = torch.from_numpy(res.mags).to(param_tensors[0].device)
-            spec_t = torch.from_numpy(res.spec).to(param_tensors[0].device)
-            mass_t = torch.from_numpy(res.mass).to(param_tensors[0].device)
-            lbol_t = torch.from_numpy(res.lbol).to(param_tensors[0].device)
+            mags_t = torch.from_numpy(res.mags).to(device)
+            spec_t = torch.from_numpy(res.spec).to(device)
+            mass_t = torch.from_numpy(res.mass).to(device)
+            lbol_t = torch.from_numpy(res.lbol).to(device)
 
             return mags_t, spec_t, mass_t, lbol_t
 
         @staticmethod
         def backward(ctx_obj, grad_mags, grad_spec, grad_mass, grad_lbol):
+            device = ctx_obj.device
             context = ctx_obj.context
             batch = ctx_obj.batch
             param_names = ctx_obj.param_names
@@ -67,19 +74,19 @@ if _HAS_TORCH:
                 lbol_bar=lbol_bar,
             )
 
-            # Map parameter gradients back to PyTorch tensors in the order received
+            # Map parameter gradients back to PyTorch tensors in the order received on matching device
             param_grads = []
             for name in param_names:
                 g_arr = grad_res.params_bar.get(name)
                 if g_arr is not None:
-                    g_tensor = torch.from_numpy(g_arr)
+                    g_tensor = torch.from_numpy(g_arr).to(device)
                     param_grads.append(g_tensor)
                 else:
                     param_grads.append(None)
 
             weights_grad = None
             if ctx_obj.has_weights and grad_res.weights_bar is not None:
-                weights_grad = torch.from_numpy(grad_res.weights_bar)
+                weights_grad = torch.from_numpy(grad_res.weights_bar).to(device)
 
             # Returns grads for: context, param_names, ssp_weights_tensor, *param_tensors
             return (None, None, weights_grad, *param_grads)
