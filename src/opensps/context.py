@@ -228,6 +228,44 @@ class Context:
     def __setitem__(self, key: str, value: Union[int, float, str]):
         self.set_param(key, value)
 
+    def set_sfh_tab(
+        self,
+        age: Sequence[float],
+        sfr: Sequence[float],
+        met: Optional[Sequence[float]] = None,
+    ):
+        """Set the tabular star formation history used with ``sfh=3``.
+
+        Parameters
+        ----------
+        age : array_like
+            Table times [Gyr], strictly increasing (time since the first star formed;
+            the last point is the age of the galaxy).
+        sfr : array_like
+            Star formation rate [M_sun/yr] at each time (linear between points).
+        met : array_like, optional
+            Metallicity Z (mass fraction) at each time, used with ``zcontinuous=3``.
+        """
+        age_a = np.ascontiguousarray(age, dtype=np.float64).reshape(-1)
+        sfr_a = np.ascontiguousarray(sfr, dtype=np.float64).reshape(-1)
+        if age_a.size != sfr_a.size:
+            raise ValueError("age and sfr must have the same length")
+        met_a = None
+        if met is not None:
+            met_a = np.ascontiguousarray(met, dtype=np.float64).reshape(-1)
+            if met_a.size != age_a.size:
+                raise ValueError("met must have the same length as age")
+        status = c_int(0)
+        _c_api._LIB.opensps_context_set_sfh_tab(
+            self.handle,
+            age_a.size,
+            age_a.ctypes.data_as(_c_api.POINTER(c_double)),
+            sfr_a.ctypes.data_as(_c_api.POINTER(c_double)),
+            met_a.ctypes.data_as(_c_api.POINTER(c_double)) if met_a is not None else None,
+            byref(status),
+        )
+        _c_api.check_status(status.value, f"set_sfh_tab(n={age_a.size})")
+
     def set_fast_mode(self, fast_mode: bool):
         """Enable or disable fast mode (skips magnitudes and spectral indices in CSP calls)."""
         status = c_int(0)

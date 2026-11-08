@@ -54,6 +54,30 @@ class TestContext(unittest.TestCase):
             emlambda = ctx.emlambda
             self.assertEqual(len(emlambda), ctx.nemline)
 
+    def test_set_sfh_tab(self):
+        with opensps.Context(zmet=1, isoc="mist", spec="miles", dust="DL07") as ctx:
+            # invalid input is rejected in Python, before the library sees it
+            with self.assertRaises(ValueError):
+                ctx.set_sfh_tab([0.0, 1.0, 2.0], [1.0, 1.0])
+            with self.assertRaises(ValueError):
+                ctx.set_sfh_tab([0.0, 1.0], [1.0, 1.0], met=[0.02])
+
+            # a constant-SFR table over 3 Gyr is the exponential SFH with a very long tau
+            ctx.set_param("sfh", 3)
+            ctx.set_param("tage", 3.0)
+            ctx.set_sfh_tab([0.0, 3.0], [1.0, 1.0])
+            tab = ctx.batch({"dust2": np.array([0.0, 0.5])}).compute(compute_spec=False)
+
+            ctx.set_param("sfh", 1)
+            ctx.set_param("tau", 1.0e4)
+            ref = ctx.batch({"dust2": np.array([0.0, 0.5])}).compute(compute_spec=False)
+
+            self.assertTrue(np.all(np.isfinite(tab.mags[:, :5])))
+            # a table is normalised to the mass it forms (1 M_sun/yr for 3 Gyr), the exponential SFH to 1 M_sun
+            formed = 3.0e9
+            np.testing.assert_allclose(tab.mags[:, :40] + 2.5 * np.log10(formed), ref.mags[:, :40], atol=5e-3)
+            np.testing.assert_allclose(tab.mass / formed, ref.mass, rtol=1e-3)
+
     def test_parameter_setting(self):
         with opensps.Context(zmet=1, isoc="mist", spec="miles", dust="DL07") as ctx:
             ctx.set_param("dust2", 0.5)
