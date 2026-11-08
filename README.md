@@ -53,6 +53,19 @@ print("Spectra shape:", res.spec.shape)       # (1000, nspec)
 print("Surviving stellar mass:", res.mass)     # (1000,)
 ```
 
+### Non-parametric SFH weights
+
+```python
+from opensps import sfh
+
+# seven lookback-time bins per galaxy -> a (N, ntfull) SSP-weight matrix for ``ctx.batch``
+t, s = sfh.step_table(edges_yr, sfr_per_bin)           # edges (N, 8) [yr], sfr (N, 7) [M_sun/yr]
+weights = sfh.ssp_weights_from_table(ctx.log_ages, t, s)
+res = ctx.batch({"dust2": dust2}, ssp_weights=weights / weights.sum(1, keepdims=True)).compute()
+```
+
+The weights are those of libopensps's tabular SFH (hats linear in log age), vectorised over models.
+
 ### 2. Analytical Adjoint Gradients
 
 ```python

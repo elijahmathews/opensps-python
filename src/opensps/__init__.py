@@ -33,6 +33,7 @@ from opensps.context import Context
 from opensps.batch import CSPBatch, CSPBatchResult, CSPBatchGradResult
 from opensps.ssp import SSPOperator
 from opensps.fsps import StellarPopulation
+from opensps import sfh
 
 __all__ = [
     "Context",
@@ -41,6 +42,7 @@ __all__ = [
     "CSPBatchGradResult",
     "SSPOperator",
     "StellarPopulation",
+    "sfh",
     "BGRAD",
     "PARAM_TO_BGRAD",
     "BGRAD_TO_PARAM",
