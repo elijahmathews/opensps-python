@@ -1,6 +1,7 @@
 """Low-level ctypes bindings to libopensps.so."""
 
 import ctypes
+import ctypes.util
 from ctypes import (
     c_int,
     c_double,
