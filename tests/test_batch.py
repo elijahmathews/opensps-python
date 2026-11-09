@@ -45,6 +45,27 @@ class TestBatch(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(res.mags)))
         self.assertTrue(np.all(res.mass > 0.0))
 
+    def test_set_mag_compute(self):
+        """Selected bands give the magnitudes of the full set, the others NaN; None restores all."""
+        params = {"dust2": [0.1, 0.3, 0.6], "tage": [2.0, 5.0, 8.0], "tau": 1.5}
+        full = self.ctx.batch(params).compute(compute_spec=False).mags
+        chosen = [0, 3, self.ctx.nbands - 1]
+        try:
+            self.ctx.set_mag_compute(chosen)
+            part = self.ctx.batch(params).compute(compute_spec=False).mags
+        finally:
+            self.ctx.set_mag_compute(None)
+        mask = np.zeros(self.ctx.nbands, dtype=bool)
+        mask[chosen] = True
+        np.testing.assert_array_equal(part[:, mask], full[:, mask])
+        self.assertTrue(np.all(np.isnan(part[:, ~mask])))
+        again = self.ctx.batch(params).compute(compute_spec=False).mags
+        np.testing.assert_array_equal(again, full)
+        with self.assertRaises(ValueError):
+            self.ctx.set_mag_compute([self.ctx.nbands])
+        with self.assertRaises(ValueError):
+            self.ctx.set_mag_compute([-1])
+
     def test_forward_batch_parts(self):
         N = 3
         params = {

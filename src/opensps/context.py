@@ -228,6 +228,36 @@ class Context:
     def __setitem__(self, key: str, value: Union[int, float, str]):
         self.set_param(key, value)
 
+    def set_mag_compute(self, bands: Optional[Sequence[int]] = None):
+        """Choose the bands whose magnitudes the context computes (batches and scenarios).
+
+        The photometry costs in proportion to the number of bands computed, so a fit that uses a few
+        of the library's filters (159 in the default set) should select them. The magnitudes of the
+        bands not selected are NaN.
+
+        Parameters
+        ----------
+        bands : array_like of int, optional
+            Zero-based indices of the bands to compute (as in the rows of the magnitudes, see
+            :attr:`nbands`). ``None`` computes every band again.
+        """
+        if not _c_api.HAS_MAG_COMPUTE:
+            raise RuntimeError("this libopensps does not provide opensps_context_set_mag_compute")
+        status = c_int(0)
+        if bands is None:
+            _c_api._LIB.opensps_context_set_mag_compute(self.handle, 0, None, byref(status))
+        else:
+            idx = np.asarray(bands, dtype=np.int64).reshape(-1)
+            nb = self.nbands
+            if idx.size and (idx.min() < 0 or idx.max() >= nb):
+                raise ValueError(f"band indices must be in [0, {nb - 1}]")
+            mask = np.zeros(nb, dtype=np.int32)
+            mask[idx] = 1
+            _c_api._LIB.opensps_context_set_mag_compute(
+                self.handle, nb, mask.ctypes.data_as(_c_api.POINTER(c_int)), byref(status)
+            )
+        _c_api.check_status(status.value, "set_mag_compute")
+
     def set_fast_mode(self, fast_mode: bool):
         """Enable or disable fast mode (skips magnitudes and spectral indices in CSP calls)."""
         status = c_int(0)

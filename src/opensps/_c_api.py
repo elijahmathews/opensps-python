@@ -94,6 +94,10 @@ else:
 HAS_BATCH_GRAD = hasattr(_LIB, "opensps_context_compute_csp_batch_grad") and hasattr(_LIB, "opensps_get_nbgrad")
 HAS_SSP_OPS = hasattr(_LIB, "opensps_context_build_ssp_ops") and hasattr(_LIB, "opensps_context_evaluate_ssp_op")
 HAS_DEVICE_PTR = hasattr(_LIB, "opensps_context_batch_spec_device")
+HAS_MAG_COMPUTE = hasattr(_LIB, "opensps_context_set_mag_compute")
+if HAS_MAG_COMPUTE:
+    _LIB.opensps_context_set_mag_compute.argtypes = [c_int, c_int, POINTER(c_int), POINTER(c_int)]
+    _LIB.opensps_context_set_mag_compute.restype = None
 
 if HAS_BATCH_GRAD:
     _LIB.opensps_get_nbgrad.argtypes = [POINTER(c_int)]
