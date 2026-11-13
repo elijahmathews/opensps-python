@@ -4,7 +4,7 @@ __version__ = "0.1.0"
 
 # C API version boundaries required by this binding (single source of truth)
 MIN_C_API_VERSION = (0, 1, 0)
-MAX_C_API_VERSION = (0, 2, 0)
+MAX_C_API_VERSION = (0, 3, 0)
 
 # Derived range specifier for human-readable reporting and packaging metadata
 __libopensps_c_api_supported__ = (
