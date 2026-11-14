@@ -333,7 +333,10 @@ class CSPBatch:
             lbol_b_c = np.ascontiguousarray(lb)
 
         # Adjoint outputs (gradients)
-        raw_pbar = np.zeros((NBGRAD, n), dtype=np.float64, order="F")
+        # Size the buffer from the loaded library, not from a constant: the C side writes every row it
+        # has (the leading dimension is its row count), so a fixed size would overrun or mis-stride.
+        nbgrad = _c_api.get_nbgrad()
+        raw_pbar = np.zeros((nbgrad, n), dtype=np.float64, order="F")
         w_f, wz_f = self._w_f, self._wz_f
         w_bar = np.zeros((ntfull, n), dtype=np.float64, order="F") if w_f is not None else None
         wz_bar = np.zeros((ntfull, nz, n), dtype=np.float64, order="F") if wz_f is not None else None
@@ -373,8 +376,11 @@ class CSPBatch:
 
         # Map raw parameter gradients to dictionary
         pbar_dict = {}
-        for row_idx in range(NBGRAD):
-            pname = BGRAD_TO_PARAM.get(BGRAD(row_idx))
+        for row_idx in range(nbgrad):
+            try:
+                pname = BGRAD_TO_PARAM.get(BGRAD(row_idx))
+            except ValueError:  # a row this binding does not know (newer library)
+                continue
             if pname:
                 pbar_dict[pname] = raw_pbar[row_idx, :].copy()
 
