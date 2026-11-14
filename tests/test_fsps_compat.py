@@ -63,3 +63,56 @@ class TestFSPSCompatibility(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPythonFSPSSemantics(unittest.TestCase):
+    """What code written for python-fsps (Prospector's CSPSpecBasis) relies on."""
+
+    @classmethod
+    def setUpClass(cls):
+        TestFSPSCompatibility.setUpClass()
+        cls.sp = opensps.StellarPopulation(zcontinuous=1)
+        for k, v in dict(sfh=4, imf_type=2, dust_type=0, tau=1.0, dust2=0.3, tage=3.0).items():
+            cls.sp.params[k] = v
+
+    def test_all_params_lists_fsps_names(self):
+        for name in ("logzsol", "dust2", "tage", "tau", "sfh", "imf_type", "zred"):
+            self.assertIn(name, self.sp.params.all_params)
+
+    def test_logzsol_reaches_the_spectrum(self):
+        """A batch not given logzsol uses one SSP metallicity: the object must pass its own."""
+        sp = self.sp
+        sp.params["logzsol"] = 0.0
+        _, hi = sp.get_spectrum(tage=3.0)
+        mass_hi = sp.stellar_mass
+        sp.params["logzsol"] = -1.0
+        _, lo = sp.get_spectrum(tage=3.0)
+        self.assertGreater(np.max(np.abs(hi / np.maximum(lo, 1e-300) - 1.0)[lo > 1e-20]), 0.05)
+        self.assertNotEqual(mass_hi, sp.stellar_mass)
+        # and it equals the same model given as per-model batch parameters
+        ref = sp.context.batch({"tage": 3.0, "tau": 1.0, "dust2": 0.3, "logzsol": -1.0}).compute(compute_spec=True)
+        np.testing.assert_allclose(lo, ref.spec[0], rtol=1e-12)
+        self.assertEqual(sp.stellar_mass, float(ref.mass[0]))
+
+    def test_unchanged_set_is_not_pushed(self):
+        """Re-setting a parameter to its value must not reach the context (it can invalidate the SSP basis)."""
+        calls = []
+        orig = self.sp.context.set_param
+        self.sp.context.set_param = lambda k, v: (calls.append(k), orig(k, v))[1]
+        try:
+            self.sp.params["imf_type"] = 2
+            self.sp.params["tau"] = 1.0
+            self.assertEqual(calls, [])
+            self.sp.params["imf_type"] = 1
+            self.assertEqual(calls, ["imf_type"])
+            self.sp.params["imf_type"] = 2
+        finally:
+            self.sp.context.set_param = orig
+
+    def test_numpy_scalars_are_accepted(self):
+        self.sp.params["sfh"] = np.int64(4)
+        self.sp.params["dust2"] = np.float64(0.3)
+
+    def test_pickle_resolves_to_the_same_object_in_this_process(self):
+        import pickle
+        self.assertIs(pickle.loads(pickle.dumps(self.sp)), self.sp)
