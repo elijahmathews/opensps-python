@@ -211,7 +211,9 @@ class Context:
         """Set a parameter on this context."""
         status = c_int(0)
         c_key = key.encode("utf-8")
-        if isinstance(value, int):
+        if isinstance(value, (bool, np.bool_, np.integer)):
+            _c_api._LIB.opensps_context_set_int(self.handle, c_key, int(value), byref(status))
+        elif isinstance(value, int):
             _c_api._LIB.opensps_context_set_int(self.handle, c_key, value, byref(status))
         elif isinstance(value, float):
             _c_api._LIB.opensps_context_set_float(self.handle, c_key, value, byref(status))
