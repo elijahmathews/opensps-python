@@ -3,7 +3,7 @@
 from enum import IntEnum
 
 # Total number of parameter gradients in reverse pass
-NBGRAD = 33
+NBGRAD = 37
 
 
 class BGRAD(IntEnum):
@@ -41,6 +41,10 @@ class BGRAD(IntEnum):
     MDAVE = 30
     AGN_TAU = 31
     IGM_FACTOR = 32
+    GAS_LOGN = 33
+    GAS_LOGNO = 34
+    GAS_LOGCO = 35
+    AFE = 36
 
 
 # Mapping from parameter string name to BGRAD index
@@ -78,6 +82,10 @@ PARAM_TO_BGRAD = {
     "mdave": BGRAD.MDAVE,
     "agn_tau": BGRAD.AGN_TAU,
     "igm_factor": BGRAD.IGM_FACTOR,
+    "gas_logn": BGRAD.GAS_LOGN,
+    "gas_logno": BGRAD.GAS_LOGNO,
+    "gas_logco": BGRAD.GAS_LOGCO,
+    "afe": BGRAD.AFE,
 }
 
 BGRAD_TO_PARAM = {v: k for k, v in PARAM_TO_BGRAD.items()}
