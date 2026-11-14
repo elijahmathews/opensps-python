@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: elijahmathews/libopensps
-          ref: dev/c-api-batch-gradients
+          ref: v0.2.0
           path: libopensps
 
       - name: Set up Python ${{ matrix.python-version }}
@@ -58,7 +58,7 @@ jobs:
 
       - name: Run Python unit tests with coverage
         env:
-          OPENSPS_LIB: ${{ github.workspace }}/libopensps/build/src/libopensps.so
+          OPENSPS_LIB_PATH: ${{ github.workspace }}/libopensps/build/libopensps.so
           OPENSPS_DATA_HOME: ${{ github.workspace }}/libopensps/tests/data/opensps-test-data
           PYTHONPATH: ${{ github.workspace }}/opensps-python/src
         run: |
